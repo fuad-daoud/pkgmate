@@ -2,25 +2,15 @@ package main
 
 import (
 	"fmt"
-
-	"github.com/Jguer/go-alpm/v2"
+	tea "github.com/charmbracelet/bubbletea"
+	"os"
+	"pkgmate/ui"
 )
 
 func main() {
-	h, err := alpm.Initialize("/", "/var/lib/pacman/")
-	if err != nil {
-		fmt.Printf("Failed to initialize: %v\n", err)
-		return
+	p := tea.NewProgram(ui.InitialModel(), tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
 	}
-	defer h.Release()
-
-	db, _ := h.LocalDB()
-	pkgs := db.PkgCache()
-
-	pkgs.ForEach(func(pkg alpm.IPackage) error {
-		fmt.Printf("%s %s\n", pkg.Name(), pkg.Version())
-		return nil
-	})
-
-	fmt.Printf("\nTotal packages: %d\n", len(pkgs.Slice()))
 }
