@@ -7,22 +7,13 @@ on:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            goarch: amd64
-            output: pkgmate-linux-amd64
-          - os: ubuntu-24.04-arm64
-            goarch: arm64
-            output: pkgmate-linux-arm64
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     container: archlinux:latest
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
         run: |
-          pacman -Syu --noconfirm go git pacman
+          pacman -Syu --noconfirm go git base-devel
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -31,7 +22,8 @@ jobs:
 
       - name: Build binaries
         run: |
-          GOOS=linux GOARCH=${{ matrix.goarch }} go build -o $${{ matrix.output }} ./main/main.go
+          GOOS=linux GOARCH=amd64 go build -o pkgmate-linux-amd64 ./main/main.go
+          GOOS=linux GOARCH=amr64 go build -o pkgmate-linux-arm64 ./main/main.go
 
   Release:
     runs-on: ubuntu-latest
