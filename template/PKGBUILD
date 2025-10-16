@@ -10,9 +10,7 @@ license=('MIT')
 provides=()
 conflicts=()
 source_x86_64=("$pkgname-$pkgver-x86_64::$url/releases/download/v$pkgver/prayers-linux-amd64")
-source_aarch64=("SKIP")
 sha256sums_x86_64=('SKIP')
-sha256sums_aarch64=('SKIP')
 
 package() {
     if [ "$CARCH" = "x86_64" ]; then
