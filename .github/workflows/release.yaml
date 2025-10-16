@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Build binaries
+        run: |
+          # Build for Linux AMD64
+          GOOS=linux GOARCH=amd64 go build -o prayers-linux-amd64 ./main.go
+
+          # Build for Linux ARM64
+          GOOS=linux GOARCH=arm64 go build -o prayers-linux-arm64 ./main.go
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            pkgmate-linux-amd64
+            pkgmate-linux-arm64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate PKGBUILD
+        env:
+          VERSION: ${{ github.ref }}
+        run: go run ./ci/generate-pkgbuild.go
+      # - run: pacman -Syu --noconfirm base-devel git
+      # - run: cd pkgbuild && makepkg --printsrcinfo > .SRCINFO
+      - name: Publish pkgmate-bin to the AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+        with:
+          pkgname: pkgmate-bin
+          pkgbuild: ./pkgbuild/PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: ${{ github.ref }}
+          # force_push: "true"
