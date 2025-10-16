@@ -21,10 +21,10 @@ jobs:
       - name: Build binaries
         run: |
           # Build for Linux AMD64
-          GOOS=linux GOARCH=amd64 go build -o prayers-linux-amd64 ./main.go
+          GOOS=linux GOARCH=amd64 go build -o pkgmate-linux-amd64 ./main/main.go
 
           # Build for Linux ARM64
-          GOOS=linux GOARCH=arm64 go build -o prayers-linux-arm64 ./main.go
+          GOOS=linux GOARCH=arm64 go build -o pkgmate-linux-arm64 ./main/main.go
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
