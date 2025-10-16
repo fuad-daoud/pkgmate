@@ -7,7 +7,16 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goarch: amd64
+            output: pkgmate-linux-amd64
+          - os: ubuntu-24.04-arm64
+            goarch: arm64
+            output: pkgmate-linux-arm64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
@@ -22,8 +31,5 @@ jobs:
 
       - name: Build binaries
         run: |
-          # Build for Linux AMD64
-          GOOS=linux GOARCH=amd64 go build -o pkgmate-linux-amd64 ./main/main.go
+          GOOS=linux GOARCH=${{ matrix.goarch }} go build -o $${{ matrix.output }} ./main/main.go
 
-          # Build for Linux ARM64
-          GOOS=linux GOARCH=arm64 go build -o pkgmate-linux-arm64 ./main/main.go
