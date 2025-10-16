@@ -1,26 +1,11 @@
 package ui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/lipgloss"
+)
 
 var (
-	headerStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#7D56F4")).
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderBottom(true).
-			BorderForeground(lipgloss.Color("#383838"))
-
-	searchStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FF79C6"))
-
-	columnHeaderStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("#BD93F9")).
-				BorderStyle(lipgloss.NormalBorder()).
-				BorderBottom(true).
-				BorderTop(true).
-				BorderForeground(lipgloss.Color("#383838"))
-
 	selectedStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#7D56F4")).
 			Bold(true)
@@ -34,9 +19,28 @@ var (
 	sizeStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFB86C"))
 
-	footerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6272A4")).
+	tableStyles = table.Styles{
+		Header: lipgloss.NewStyle().
+			Bold(true).
+			Padding(0, 1).
 			BorderStyle(lipgloss.NormalBorder()).
-			BorderTop(true).
-			BorderForeground(lipgloss.Color("#383838"))
+			BorderForeground(lipgloss.Color("#FFFFFF")).
+			BorderBottom(true).
+			MarginTop(1).
+			Bold(false),
+		Selected: lipgloss.NewStyle().
+			Bold(false).
+			Foreground(lipgloss.Color("#FFFFFF")).
+			Background(lipgloss.Color("#4355ff")),
+		Cell: lipgloss.NewStyle().Padding(0, 1),
+	}
+
+	bottomTab = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder(), false, true, true, true).
+			MarginTop(1)
+	topTab = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder(), false, true, true, true).
+		MarginBottom(0)
+	frameStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
+	spaceStyle = lipgloss.NewStyle()
 )
