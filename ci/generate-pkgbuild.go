@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 )
 
@@ -30,5 +31,12 @@ func updatePKGBUILD(version string) error {
 	versionRegex := regexp.MustCompile(`pkgver=.*`)
 	updated := versionRegex.ReplaceAllString(string(content), fmt.Sprintf("pkgver=%s", version))
 
-	return os.WriteFile("./pkgbuild/PKGBUILD", []byte(updated), 0644)
+	outputPath := "./pkgbuild/PKGBUILD"
+	outputDir := filepath.Dir(outputPath)
+
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	return os.WriteFile(outputPath, []byte(updated), 0644)
 }
