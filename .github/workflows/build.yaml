@@ -23,4 +23,3 @@ jobs:
       - name: Build binaries
         run: |
           GOOS=linux GOARCH=amd64 go build -o pkgmate-linux-amd64 ./main/main.go
-          GOOS=linux GOARCH=amr64 go build -o pkgmate-linux-arm64 ./main/main.go
