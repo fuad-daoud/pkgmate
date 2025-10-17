@@ -2,3 +2,4 @@ pkgbuild
 profile*
 .SRCINFO
 PKGBUILD
+*.log
