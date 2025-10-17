@@ -3,7 +3,7 @@
 pkgname=pkgmate-bin
 pkgver=
 pkgrel=1
-pkgdesc="TUI for application to manage your dependencies"
+pkgdesc="TUI application to manage your dependencies"
 arch=('x86_64')
 url="https://github.com/fuad-daoud/pkgmate"
 license=('MIT')
