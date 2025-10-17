@@ -55,6 +55,7 @@ jobs:
         run: |
           go run ./ci/generate-pkgbuild.go
           cd pkgbuild
+          pacman -Syu --noconfirm pacman-contrib
           updpkgsums PKGBUILD
       # - run: pacman -Syu --noconfirm base-devel git
       # - run: cd pkgbuild && makepkg --printsrcinfo > .SRCINFO
