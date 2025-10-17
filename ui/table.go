@@ -74,13 +74,14 @@ func (m tableModel) update(msg tea.Msg) (tableModel, tea.Cmd) {
 		m.width = msg.Width - (msg.Width / 5)
 
 		m.table.SetHeight(m.height)
-		const column_count = 3
+		const column_count = 4
 		columnWidth := m.width / column_count
 
 		columns := []table.Column{
 			{Title: "Name", Width: columnWidth},
 			{Title: "Version", Width: columnWidth},
 			{Title: "Size", Width: columnWidth},
+			{Title: "Installed", Width: columnWidth},
 		}
 
 		m.table.SetColumns(columns)
@@ -91,7 +92,7 @@ func (m tableModel) update(msg tea.Msg) (tableModel, tea.Cmd) {
 		}
 		rows := []table.Row{}
 		for _, pkg := range msg {
-			row := table.Row{pkg.Name, pkg.Version, formatSize(pkg.Size)}
+			row := table.Row{pkg.Name, pkg.Version, formatSize(pkg.Size), pkg.Date.Format("2006-01-02")}
 			rows = append(rows, row)
 		}
 		m.rows = rows

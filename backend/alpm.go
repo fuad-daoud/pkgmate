@@ -1,11 +1,16 @@
 package backend
 
-import "github.com/Jguer/go-alpm/v2"
+import (
+	"time"
+
+	"github.com/Jguer/go-alpm/v2"
+)
 
 type Package struct {
 	Name    string
 	Version string
 	Size    int64
+	Date    time.Time
 }
 
 func LoadPackages() ([]Package, error) {
@@ -29,6 +34,7 @@ func LoadPackages() ([]Package, error) {
 			Name:    p.Name(),
 			Version: p.Version(),
 			Size:    p.ISize(),
+			Date:    p.InstallDate(),
 		})
 		return nil
 	})
