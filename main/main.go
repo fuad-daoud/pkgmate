@@ -5,7 +5,7 @@ import (
 	"os"
 	"pkgmate/ui"
 
-	"net/http"
+	_ "net/http"
 	_ "net/http/pprof"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -13,9 +13,9 @@ import (
 
 func main() {
 	// for memory profiling
-	go func() {
-		http.ListenAndServe("localhost:6060", nil)
-	}()
+	// go func() {
+	// 	http.ListenAndServe("localhost:6060", nil)
+	// }()
 
 	p := tea.NewProgram(ui.InitialModel(), tea.WithAltScreen(), tea.WithFPS(24))
 	if _, err := p.Run(); err != nil {
