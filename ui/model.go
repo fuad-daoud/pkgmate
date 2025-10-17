@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"pkgmate/backend"
 	"reflect"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -16,17 +18,22 @@ type model struct {
 	viewportHeight int
 	viewportWidth  int
 	header         headerModel
-	displayModel        displayModel
+	displayModel   displayModel
 	footer         footerModel
 	showDebug      bool
+	spin           spinner.Model
+	showSpinner    bool
 }
 
 func InitialModel() model {
+	spin := spinner.New(spinner.WithSpinner(spinner.Monkey))
+
 	return model{
-		header:    newHeader(),
-		displayModel:   newDisplay(),
-		footer:    newFooter(),
-		showDebug: false,
+		header:       newHeader(),
+		displayModel: newDisplay(),
+		footer:       newFooter(),
+		showDebug:    false,
+		spin:         spin,
 	}
 }
 
@@ -49,8 +56,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.viewportHeight = msg.Height - (msg.Height / 5)
-		m.viewportWidth = msg.Width - (msg.Width / 5)
+		if m.width <= 70 {
+			m.showSpinner = true
+			commands = append(commands, m.spin.Tick)
+		}
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spin, cmd = m.spin.Update(msg)
+
+		if m.width > 70 {
+			m.showSpinner = false
+		} else {
+			commands = append(commands, cmd)
+		}
 
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -58,7 +76,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.footer.search.Focused() {
 				return m, tea.Quit
 			}
-		case "ctrl+d":
+		case "ctrl+_":
 			m.showDebug = !m.showDebug
 		}
 	}
@@ -71,7 +89,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	commands = append(commands, displayCmd)
 
 	var headerCmd tea.Cmd
-	
+
 	m.header, headerCmd = m.header.Update(msg)
 	commands = append(commands, headerCmd)
 
@@ -85,6 +103,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	if m.showDebug {
 		content := frameStyle.Render(debug.View())
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+	}
+	if m.showSpinner {
+		content := fmt.Sprintf("%s Terminal Width (%d) less the minimum width %d", m.spin.View(), m.width, 70)
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 	}
 	content := lipgloss.JoinVertical(lipgloss.Bottom, m.header.View(), m.displayModel.View(), m.footer.View())

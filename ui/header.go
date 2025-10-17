@@ -28,7 +28,7 @@ func newHeader() headerModel {
 
 func (m headerModel) Update(msg tea.Msg) (headerModel, tea.Cmd) {
 	var cmd tea.Cmd
-	switch msg.(type) {
+	switch  msg.(type) {
 	case tea.WindowSizeMsg:
 		cmd = m.newHeaderResizeEvent
 	}

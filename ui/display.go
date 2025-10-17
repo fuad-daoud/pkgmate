@@ -56,7 +56,7 @@ func (m displayModel) Update(msg tea.Msg) (displayModel, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	case tea.WindowSizeMsg:
-		m.baseHeight = msg.Height - 4 // 4 for the frame space
+		m.baseHeight = msg.Height - 6 // 4 for the frame space and 2 for safe resize rendering
 		m.baseWidth = msg.Width
 		m.width = m.baseWidth
 
