@@ -34,6 +34,7 @@ type footerModel struct {
 func newFooter() *footerModel {
 	ti := textinput.New()
 	ti.Placeholder = "Search packages..."
+	ti.Prompt = ""
 	ti.CharLimit = 50
 	ti.Width = 50
 	ti.ShowSuggestions = false

@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"os"
 	"pkgmate/backend"
 
@@ -14,16 +13,16 @@ type model struct {
 	height         int
 	viewportHeight int
 	viewportWidth  int
-	table          tableModel
+	header         headerModel
+	display        displayModel
 	footer         *footerModel
-	info string
 }
 
 func InitialModel() model {
 	return model{
-		table:  newTable(),
-		footer: newFooter(),
-		info: "Pkgmate v0.0.0",
+		header:  newHeader(),
+		display: newDisplay(),
+		footer:  newFooter(),
 	}
 }
 
@@ -41,6 +40,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	commands := make([]tea.Cmd, 0)
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -55,36 +55,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 		}
-
 	}
 	var footerCmd tea.Cmd
 	m.footer, footerCmd = m.footer.Update(msg)
+	commands = append(commands, footerCmd)
 
-	var tableCmd tea.Cmd
-	m.table, tableCmd = m.table.update(msg)
+	var displayCmd tea.Cmd
+	m.display, displayCmd = m.display.Update(msg)
+	commands = append(commands, displayCmd)
 
-	return m, tea.Batch(tableCmd, footerCmd)
+	return m, tea.Batch(commands...)
 }
 
 func (m model) View() string {
-	info := topTab.Render(m.info)
-	header := lipgloss.JoinHorizontal(lipgloss.Center, info)
-
-	content := lipgloss.JoinVertical(lipgloss.Bottom, header, m.table.View(), m.footer.View())
+	content := lipgloss.JoinVertical(lipgloss.Bottom, m.header.View(), m.display.View(), m.footer.View())
 
 	content = frameStyle.Render(content)
 
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
-}
-func formatSize(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }

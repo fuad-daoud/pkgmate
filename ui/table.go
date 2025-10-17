@@ -9,7 +9,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type TableEvents int
 
 type TableEvent struct {
 	cursor  int
@@ -19,6 +18,8 @@ type TableEvent struct {
 type TableSummery struct {
 	count int
 }
+
+type TableEvents int
 
 const (
 	CursorChanged TableEvents = iota
@@ -66,7 +67,7 @@ func newTable() tableModel {
 	return tableModel{table: t}
 }
 
-func (m tableModel) update(msg tea.Msg) (tableModel, tea.Cmd) {
+func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 	var commands []tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -92,7 +93,7 @@ func (m tableModel) update(msg tea.Msg) (tableModel, tea.Cmd) {
 		}
 		rows := []table.Row{}
 		for _, pkg := range msg {
-			row := table.Row{pkg.Name, pkg.Version, formatSize(pkg.Size), pkg.Date.Format("2006-01-02")}
+			row := table.Row{pkg.Name, pkg.Version, pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
 			rows = append(rows, row)
 		}
 		m.rows = rows
@@ -145,3 +146,4 @@ func (m *tableModel) filterPackages(term string) {
 func (m tableModel) View() string {
 	return m.table.View()
 }
+
