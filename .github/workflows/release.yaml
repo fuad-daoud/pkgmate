@@ -52,7 +52,10 @@ jobs:
       - name: Generate PKGBUILD
         env:
           VERSION: ${{ github.ref_name }}
-        run: go run ./ci/generate-pkgbuild.go
+        run: |
+          go run ./ci/generate-pkgbuild.go
+          cd pkgbuild
+          updpkgsums PKGBUILD
       # - run: pacman -Syu --noconfirm base-devel git
       # - run: cd pkgbuild && makepkg --printsrcinfo > .SRCINFO
       - name: Publish pkgmate-bin to the AUR
