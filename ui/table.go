@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"log/slog"
 	"pkgmate/backend"
 	"strings"
 
@@ -8,7 +9,6 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 )
-
 
 type TableEvent struct {
 	cursor  int
@@ -70,19 +70,19 @@ func newTable() tableModel {
 func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 	var commands []tea.Cmd
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.height = msg.Height - (msg.Height / 5)
-		m.width = msg.Width - (msg.Width / 5)
+	case DisplayResizeEvent:
+		slog.Info("got window resize message", "msg", msg)
+		m.height = msg.height
+		m.width = msg.width - 2
 
 		m.table.SetHeight(m.height)
-		const column_count = 4
-		columnWidth := m.width / column_count
+		m.table.SetWidth(m.width)
 
 		columns := []table.Column{
-			{Title: "Name", Width: columnWidth},
-			{Title: "Version", Width: columnWidth},
-			{Title: "Size", Width: columnWidth},
-			{Title: "Installed", Width: columnWidth},
+			{Title: "Name", Width: 10},
+			{Title: "Version", Width: 10},
+			{Title: "Size", Width: 10},
+			{Title: "Installed", Width: 10},
 		}
 
 		m.table.SetColumns(columns)
@@ -90,6 +90,9 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 	case []backend.Package:
 		if len(msg) == 0 {
 			break
+		}
+		if len(m.table.Columns()) == 0 {
+			panic("can't set rows before columns")
 		}
 		rows := []table.Row{}
 		for _, pkg := range msg {
@@ -101,23 +104,20 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 		m.table.SetRows(rows)
 		commands = append(commands, m.newSummeryEvent)
 
-	case FooterEvent:
-		switch msg.event {
-		case SearchFocused:
-			m.table.Blur()
-		case SearchBlured:
-			m.table.Focus()
-		case SearchReseted:
-			m.table.Blur()
-			m.table.SetCursor(0)
-			m.table.SetRows(m.rows)
-			m.table.Focus()
+	case SearchFocusedEvent:
+		m.table.Blur()
+	case SearchBluredEvent:
+		m.table.Focus()
+	case SearchResetedEvent:
+		m.table.Blur()
+		m.table.SetCursor(0)
+		m.table.SetRows(m.rows)
+		m.table.Focus()
 
-		case NewSearchTerm:
-			m.table.SetCursor(0)
-			m.filterPackages(msg.term)
-			commands = append(commands, m.newSummeryEvent)
-		}
+	case NewSearchTermEvent:
+		m.table.SetCursor(0)
+		m.filterPackages(msg.term)
+		commands = append(commands, m.newSummeryEvent)
 	}
 	var newCmd tea.Cmd
 
@@ -146,4 +146,3 @@ func (m *tableModel) filterPackages(term string) {
 func (m tableModel) View() string {
 	return m.table.View()
 }
-

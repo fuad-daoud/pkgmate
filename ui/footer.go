@@ -9,19 +9,16 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type FooterEvents int
-
-type FooterEvent struct {
-	term  string
-	event FooterEvents
+type FooterResizeEvent struct {
+	width  int
+	height int
 }
-
-const (
-	SearchBlured FooterEvents = iota
-	SearchFocused
-	SearchReseted
-	NewSearchTerm
-)
+type NewSearchTermEvent struct {
+	term string
+}
+type SearchBluredEvent struct{}
+type SearchFocusedEvent struct{}
+type SearchResetedEvent struct{}
 
 type footerModel struct {
 	search       textinput.Model
@@ -31,45 +28,46 @@ type footerModel struct {
 	previousTerm string
 }
 
-func newFooter() *footerModel {
+func newFooter() footerModel {
 	ti := textinput.New()
 	ti.Placeholder = "Search packages..."
 	ti.Prompt = ""
 	ti.CharLimit = 50
 	ti.Width = 50
 	ti.ShowSuggestions = false
-	return &footerModel{search: ti, count: -1}
+	return footerModel{search: ti, count: -1}
 }
 
 func (m footerModel) blurSearch() tea.Msg {
-	return FooterEvent{
-		event: SearchBlured,
-	}
+	return SearchBluredEvent{}
 }
 
 func (m footerModel) focusSearch() tea.Msg {
-	return FooterEvent{
-		event: SearchFocused,
-	}
+	return SearchFocusedEvent{}
 }
 
 func (m footerModel) resetSearch() tea.Msg {
-	return FooterEvent{
-		event: SearchReseted,
-	}
+	return SearchResetedEvent{}
 }
 func (m footerModel) newSearchTermEvent() tea.Msg {
-	return FooterEvent{
-		event: NewSearchTerm,
-		term:  m.previousTerm,
+	return NewSearchTermEvent{
+		term: m.previousTerm,
+	}
+}
+func (m footerModel) newFooterResizeEvent() tea.Msg {
+	v := m.View()
+	return FooterResizeEvent{
+		width:  lipgloss.Width(v),
+		height: lipgloss.Height(v),
 	}
 }
 
-func (m *footerModel) Update(msg tea.Msg) (*footerModel, tea.Cmd) {
-	var cmd tea.Cmd
+func (m footerModel) Update(msg tea.Msg) (footerModel, tea.Cmd) {
+	commands := make([]tea.Cmd, 0)
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width - (msg.Width / 6)
+		m.width = msg.Width - 2
+		commands = append(commands, m.newFooterResizeEvent)
 	case TableEvent:
 		switch msg.event {
 		case CursorChanged:
@@ -103,11 +101,12 @@ func (m *footerModel) Update(msg tea.Msg) (*footerModel, tea.Cmd) {
 				m.search.Blur()
 				return m, m.blurSearch
 			}
-			return m, cmd
+			return m, tea.Batch(commands...)
 		}
 	}
 
 	if m.search.Focused() {
+		var cmd tea.Cmd
 		m.search, cmd = m.search.Update(msg)
 		term := strings.ToLower(m.search.Value())
 		if m.previousTerm == term {
@@ -117,7 +116,7 @@ func (m *footerModel) Update(msg tea.Msg) (*footerModel, tea.Cmd) {
 
 		return m, m.newSearchTermEvent
 	}
-	return m, cmd
+	return m, tea.Batch(commands...)
 }
 
 func (m *footerModel) View() string {

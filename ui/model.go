@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"log/slog"
 	"os"
 	"pkgmate/backend"
+	"reflect"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,15 +16,17 @@ type model struct {
 	viewportHeight int
 	viewportWidth  int
 	header         headerModel
-	display        displayModel
-	footer         *footerModel
+	displayModel        displayModel
+	footer         footerModel
+	showDebug      bool
 }
 
 func InitialModel() model {
 	return model{
-		header:  newHeader(),
-		display: newDisplay(),
-		footer:  newFooter(),
+		header:    newHeader(),
+		displayModel:   newDisplay(),
+		footer:    newFooter(),
+		showDebug: false,
 	}
 }
 
@@ -32,7 +36,6 @@ func fetchPackages() tea.Msg {
 		os.Exit(1)
 	}
 	return pkgs
-
 }
 
 func (m model) Init() tea.Cmd {
@@ -40,6 +43,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	slog.Info("New event", "type", reflect.TypeOf(msg))
 	commands := make([]tea.Cmd, 0)
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -54,6 +58,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.footer.search.Focused() {
 				return m, tea.Quit
 			}
+		case "ctrl+d":
+			m.showDebug = !m.showDebug
 		}
 	}
 	var footerCmd tea.Cmd
@@ -61,16 +67,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	commands = append(commands, footerCmd)
 
 	var displayCmd tea.Cmd
-	m.display, displayCmd = m.display.Update(msg)
+	m.displayModel, displayCmd = m.displayModel.Update(msg)
 	commands = append(commands, displayCmd)
+
+	var headerCmd tea.Cmd
+	
+	m.header, headerCmd = m.header.Update(msg)
+	commands = append(commands, headerCmd)
+
+	var debugCmd tea.Cmd
+	debug, debugCmd = debug.Update(msg)
+	commands = append(commands, debugCmd)
 
 	return m, tea.Batch(commands...)
 }
 
 func (m model) View() string {
-	content := lipgloss.JoinVertical(lipgloss.Bottom, m.header.View(), m.display.View(), m.footer.View())
+	if m.showDebug {
+		content := frameStyle.Render(debug.View())
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+	}
+	content := lipgloss.JoinVertical(lipgloss.Bottom, m.header.View(), m.displayModel.View(), m.footer.View())
 
-	content = frameStyle.Render(content)
-
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+	return frameStyle.Render(content)
 }
