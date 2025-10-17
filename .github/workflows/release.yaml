@@ -46,6 +46,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   Publish:
     runs-on: ubuntu-latest
+    container: archlinux:latest
     needs: [Release]
     steps:
       - uses: actions/checkout@v4
