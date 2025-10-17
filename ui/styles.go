@@ -35,9 +35,14 @@ var (
 		Cell: lipgloss.NewStyle().Padding(0, 1),
 	}
 
-	bottomTab = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder(), false, true, true, true).
+	bottomRightTab = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder(), false, false, true, true).
 			MarginTop(1)
+
+	bottomLeftTab = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder(), false, true, true, false).
+			MarginTop(1)
+
 	topTab = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder(), false, true, true, true).
 		MarginBottom(0)

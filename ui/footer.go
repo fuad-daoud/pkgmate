@@ -24,15 +24,11 @@ const (
 )
 
 type footerModel struct {
-	search          textinput.Model
-	count           int
-	cursor          int
-	width           int
-	previousTerm    string
-	cachedCountStr  string
-	cachedCursorStr string
-	cachedView      string
-	viewDirty       bool
+	search       textinput.Model
+	count        int
+	cursor       int
+	width        int
+	previousTerm string
 }
 
 func newFooter() *footerModel {
@@ -41,7 +37,7 @@ func newFooter() *footerModel {
 	ti.CharLimit = 50
 	ti.Width = 50
 	ti.ShowSuggestions = false
-	return &footerModel{search: ti, viewDirty: true, count: -1, cachedCountStr: bottomTab.Render("0"), cachedCursorStr: bottomTab.Render("1")}
+	return &footerModel{search: ti, count: -1}
 }
 
 func (m footerModel) blurSearch() tea.Msg {
@@ -68,25 +64,20 @@ func (m footerModel) newSearchTermEvent() tea.Msg {
 	}
 }
 
-func (m *footerModel) update(msg tea.Msg) (*footerModel, tea.Cmd) {
+func (m *footerModel) Update(msg tea.Msg) (*footerModel, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width - (msg.Width / 6)
-		m.viewDirty = true
 	case TableEvent:
 		switch msg.event {
 		case CursorChanged:
 			if m.cursor != msg.cursor {
 				m.cursor = msg.cursor
-				m.cachedCursorStr = bottomTab.Render(strconv.Itoa(m.cursor + 1))
-				m.viewDirty = true
 			}
 		case NewSummery:
 			if m.count != msg.summary.count {
 				m.count = msg.summary.count
-				m.cachedCountStr = bottomTab.Render(strconv.Itoa(m.count))
-				m.viewDirty = true
 			}
 		}
 
@@ -95,7 +86,6 @@ func (m *footerModel) update(msg tea.Msg) (*footerModel, tea.Cmd) {
 		case "/":
 			if !m.search.Focused() {
 				m.search.Focus()
-				m.viewDirty = true
 				return m, tea.Batch(m.focusSearch, textinput.Blink)
 			}
 
@@ -104,7 +94,6 @@ func (m *footerModel) update(msg tea.Msg) (*footerModel, tea.Cmd) {
 				m.search.Blur()
 				m.search.Reset()
 				m.search.SetValue("")
-				m.viewDirty = true
 				return m, m.resetSearch
 			}
 
@@ -124,21 +113,21 @@ func (m *footerModel) update(msg tea.Msg) (*footerModel, tea.Cmd) {
 			return m, cmd
 		}
 		m.previousTerm = term
-		m.viewDirty = true
 
 		return m, m.newSearchTermEvent
 	}
 	return m, cmd
 }
 
-func (m *footerModel) view() string {
-	if !m.viewDirty && m.cachedView != "" {
-		return m.cachedView
-	}
-	styledSearch := bottomTab.Render(m.search.View())
-	m.viewDirty = false
-	spacer := spaceStyle.Width(m.width - lipgloss.Width(styledSearch) - lipgloss.Width(m.cachedCountStr) - lipgloss.Width(m.cachedCursorStr)).Render()
-	m.cachedView = lipgloss.JoinHorizontal(lipgloss.Top, styledSearch, spacer, m.cachedCursorStr, m.cachedCountStr)
-	return m.cachedView
+func (m *footerModel) View() string {
+	cursor := bottomRightTab.Render(strconv.Itoa(m.cursor))
+	count := bottomRightTab.Render(strconv.Itoa(m.count))
+	rightSection := lipgloss.JoinHorizontal(lipgloss.Top, cursor, count)
+
+	styledSearch := bottomLeftTab.Render(m.search.View())
+	searchColumn := bottomLeftTab.Bold(true).Render("Name")
+	leftSection := lipgloss.JoinHorizontal(lipgloss.Bottom, styledSearch, searchColumn)
+	spacer := spaceStyle.Width(m.width - lipgloss.Width(leftSection) - lipgloss.Width(rightSection)).Render()
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftSection, spacer, rightSection)
 
 }

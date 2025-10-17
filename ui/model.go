@@ -16,13 +16,14 @@ type model struct {
 	viewportWidth  int
 	table          tableModel
 	footer         *footerModel
-	cachedView     string
+	info string
 }
 
 func InitialModel() model {
 	return model{
 		table:  newTable(),
 		footer: newFooter(),
+		info: "Pkgmate v0.0.0",
 	}
 }
 
@@ -57,25 +58,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	}
 	var footerCmd tea.Cmd
-	m.footer, footerCmd = m.footer.update(msg)
+	m.footer, footerCmd = m.footer.Update(msg)
 
 	var tableCmd tea.Cmd
 	m.table, tableCmd = m.table.update(msg)
-
-	info := topTab.Render("Pkgmate v0.0.0")
-	header := lipgloss.JoinHorizontal(lipgloss.Center, info)
-
-	content := lipgloss.JoinVertical(lipgloss.Bottom, header, m.table.View(), m.footer.view())
-
-	content = frameStyle.Render(content)
-
-	m.cachedView = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 
 	return m, tea.Batch(tableCmd, footerCmd)
 }
 
 func (m model) View() string {
-	return m.cachedView
+	info := topTab.Render(m.info)
+	header := lipgloss.JoinHorizontal(lipgloss.Center, info)
+
+	content := lipgloss.JoinVertical(lipgloss.Bottom, header, m.table.View(), m.footer.View())
+
+	content = frameStyle.Render(content)
+
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 }
 func formatSize(bytes int64) string {
 	const unit = 1024
