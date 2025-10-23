@@ -1,8 +1,200 @@
-<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>pkgmate APT Repository</title></head>
-<body><h1>pkgmate APT Repository</h1>
-<h2>Installation</h2>
-<pre>curl -fsSL https://apt.pkgmate.com/public.key | sudo gpg --dearmor -o /usr/share/keyrings/pkgmate-archive-keyring.gpg
-echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/pkgmate-archive-keyring.gpg] https://fuad-daoud.github.io/pkgmate stable main" | sudo tee /etc/apt/sources.list.d/pkgmate.list
-sudo apt update && sudo apt install pkgmate</pre>
-</body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pkgmate</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          "Berkeley Mono", "SF Mono", Monaco, "Cascadia Code", "Roboto Mono",
+          monospace;
+        background: #0a0a0a;
+        color: #808080;
+        line-height: 1.6;
+        padding: 3rem 2rem;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0;
+        padding-top: 2rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 400;
+        margin-bottom: 0.25rem;
+        color: #b0b0b0;
+        letter-spacing: -0.02em;
+      }
+      .subtitle {
+        font-size: 0.875rem;
+        color: #505050;
+        margin-bottom: 4rem;
+      }
+      .install-section {
+        margin: 3rem 0;
+      }
+      h2 {
+        font-size: 0.875rem;
+        margin-bottom: 2rem;
+        color: #808080;
+        font-weight: 400;
+        text-transform: lowercase;
+      }
+      .step {
+        margin-bottom: 1rem;
+      }
+      .step-number {
+        color: #505050;
+        font-size: 0.75rem;
+        margin-bottom: 0.5rem;
+        font-weight: 400;
+      }
+      .code-block {
+        position: relative;
+        background: #000;
+        border: 1px solid #1a1a1a;
+        border-radius: 6px;
+        padding: 1rem 1.25rem;
+        overflow-x: auto;
+        font-size: 0.8125rem;
+        line-height: 1.6;
+        color: #a0a0a0;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        max-width: 800px;
+      }
+      .code-block:hover {
+        border-color: #2a2a2a;
+        background: #050505;
+      }
+      .code-block:hover .copy-indicator {
+        opacity: 1;
+      }
+      .code-block code {
+        display: block;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .copy-indicator {
+        position: absolute;
+        top: 0.75rem;
+        right: 1rem;
+        color: #404040;
+        font-size: 0.75rem;
+        opacity: 0;
+        transition: opacity 0.15s;
+        pointer-events: none;
+      }
+      .copy-feedback {
+        position: absolute;
+        top: 0.75rem;
+        right: 1rem;
+        color: #50fa7b;
+        font-size: 0.75rem;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+      }
+      .copy-feedback.show {
+        opacity: 1;
+      }
+      .links {
+        margin-top: 4rem;
+        padding-top: 2rem;
+        border-top: 1px solid #1a1a1a;
+        display: flex;
+        gap: 2rem;
+        font-size: 0.875rem;
+      }
+      a {
+        color: #505050;
+        text-decoration: none;
+        transition: color 0.15s ease;
+      }
+      a:hover {
+        color: #b0b0b0;
+      }
+
+      @media (max-width: 768px) {
+        body {
+          padding: 2rem 1.5rem;
+        }
+        .container {
+          padding-top: 1rem;
+        }
+        .code-block {
+          font-size: 0.75rem;
+          padding: 0.875rem 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>pkgmate</h1>
+      <div class="subtitle">terminal package manager</div>
+
+      <div class="install-section">
+        <h2>installation</h2>
+
+        <div class="step">
+          <div class="step-number">add gpg key</div>
+          <div class="code-block" onclick="copyCode(this)">
+            <span class="copy-indicator">click to copy</span>
+            <span class="copy-feedback">copied!</span>
+            <code
+              >curl -fsSL https://apt.pkgmate.com/public.key | sudo gpg
+              --dearmor -o /usr/share/keyrings/pkgmate-archive-keyring.gpg</code
+            >
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number">add repository</div>
+          <div class="code-block" onclick="copyCode(this)">
+            <span class="copy-indicator">click to copy</span>
+            <span class="copy-feedback">copied!</span>
+            <code
+              >echo "deb [arch=amd64,arm64
+              signed-by=/usr/share/keyrings/pkgmate-archive-keyring.gpg]
+              https://apt.pkgmate.com stable main" | sudo tee
+              /etc/apt/sources.list.d/pkgmate.list</code
+            >
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number">install package</div>
+          <div class="code-block" onclick="copyCode(this)">
+            <span class="copy-indicator">click to copy</span>
+            <span class="copy-feedback">copied!</span>
+            <code>sudo apt update && sudo apt install pkgmate</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="links">
+        <a href="https://github.com/fuad-daoud/pkgmate">source</a>
+        <a href="https://github.com/fuad-daoud/pkgmate/releases">releases</a>
+      </div>
+    </div>
+
+    <script>
+      function copyCode(element) {
+        const code = element.querySelector("code").textContent;
+        const feedback = element.querySelector(".copy-feedback");
+
+        navigator.clipboard.writeText(code).then(() => {
+          feedback.classList.add("show");
+          setTimeout(() => feedback.classList.remove("show"), 1500);
+        });
+      }
+    </script>
+  </body>
+</html>
