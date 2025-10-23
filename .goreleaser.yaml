@@ -31,6 +31,7 @@ archives:
     formats: ["tar.gz"]
     name_template: "{{ .ProjectName }}-debian-{{ .Os }}-{{ .Arch }}"
 
+
 checksum:
   name_template: "checksums.txt"
 
@@ -58,3 +59,16 @@ aurs:
       email: "{{ .Env.AUR_EMAIL }}"
     package: |-
       install -Dm755 "./pkgmate" "${pkgdir}/usr/bin/pkgmate"
+
+nfpms:
+  - id: pkgmate-deb
+    package_name: pkgmate
+    ids: [pkgmate-debian]
+    vendor: Fuad Daoud
+    homepage: https://github.com/fuad-daoud/pkgmate
+    maintainer: Fuad Daoud <aur@fuad-daoud.com>
+    description: TUI application to manage your dependencies
+    license: MIT
+    formats:
+      - deb
+    bindir: /usr/bin
