@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+defaults:
+  run:
+    working-directory: ./apt
+
 jobs:
   publish-apt-repo:
     runs-on: ubuntu-latest
