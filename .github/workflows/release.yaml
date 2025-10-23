@@ -17,6 +17,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm go git base-devel
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
