@@ -16,7 +16,7 @@ jobs:
       - name: Install dependencies
         run: |
           pacman -Syu --noconfirm go git base-devel goreleaser
-
+      - run: git config --global --add safe.directory $PWD
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
