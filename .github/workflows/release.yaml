@@ -24,7 +24,7 @@ jobs:
       - name: Run GoReleaser
         run: goreleaser release --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT }}
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           AUR_USERNAME: ${{ secrets.AUR_USERNAME }}
           AUR_EMAIL: ${{ secrets.AUR_EMAIL }}
