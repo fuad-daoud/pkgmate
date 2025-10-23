@@ -1,0 +1,52 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Origin: pkgmate
+Label: pkgmate
+Suite: stable
+Codename: stable
+Architectures: amd64 arm64
+Components: main
+Description: pkgmate - TUI application to manage your dependencies
+Date: Thu, 23 Oct 2025 19:58:19 +0000
+Date: Thu, 23 Oct 2025 19:58:19 +0000
+MD5Sum:
+ 870d584bca115cf53163a3e26acbe73b              249 Release
+ f75294452f5da85bbc7ee592868d3d8f              980 main/binary-amd64/Packages
+ 19e9044effb91f2e9ed01b0071197c29              500 main/binary-amd64/Packages.gz
+ f75294452f5da85bbc7ee592868d3d8f              980 main/binary-arm64/Packages
+ 19e9044effb91f2e9ed01b0071197c29              500 main/binary-arm64/Packages.gz
+SHA1:
+ e238a75eab2f575302b1aff48fbdf739ff9a4076              249 Release
+ f8d256a5718af17d40b5df8e08edd88446df072b              980 main/binary-amd64/Packages
+ 616279261f529fe19160fb627e848322c9415fb1              500 main/binary-amd64/Packages.gz
+ f8d256a5718af17d40b5df8e08edd88446df072b              980 main/binary-arm64/Packages
+ 616279261f529fe19160fb627e848322c9415fb1              500 main/binary-arm64/Packages.gz
+SHA256:
+ 9e88a02060e6634f99e8f34a51dc5978b637169f42fb8f38ba04781513229623              249 Release
+ 5a52a64dcd594b3b94498d7d3bbfc08161bd6647094f6ab8626c841a1a98efe2              980 main/binary-amd64/Packages
+ 47d96c3fd05487b221397694c9ff191e986c47ffcddcd92e9f839f7735b1722f              500 main/binary-amd64/Packages.gz
+ 5a52a64dcd594b3b94498d7d3bbfc08161bd6647094f6ab8626c841a1a98efe2              980 main/binary-arm64/Packages
+ 47d96c3fd05487b221397694c9ff191e986c47ffcddcd92e9f839f7735b1722f              500 main/binary-arm64/Packages.gz
+SHA512:
+ 30ebc0883462c1bff909b6bbb30ed1d5ef84f8570b4fb017e0848a2a7ca1da56a1226cb4426695df2b47cc4f78cf0faad44a4e1307a80784980f27a4f98bdbb5              249 Release
+ 0aa7132947cfd6cae8fa1817dc2563eab883f3370f46cdb5404e4be774dd790c04091e954b2da76c7c17c005ef3d4e4f0fa2b16a3186497091a48de9df5e0488              980 main/binary-amd64/Packages
+ af572bc2d64c02c52c56e35b704116712de20a48acda194f4fb8c47dbe70960d3e76aae1cf5acb966daf69d42cf06db2e0e4013c22a4956ab04e3e4b575654c3              500 main/binary-amd64/Packages.gz
+ 0aa7132947cfd6cae8fa1817dc2563eab883f3370f46cdb5404e4be774dd790c04091e954b2da76c7c17c005ef3d4e4f0fa2b16a3186497091a48de9df5e0488              980 main/binary-arm64/Packages
+ af572bc2d64c02c52c56e35b704116712de20a48acda194f4fb8c47dbe70960d3e76aae1cf5acb966daf69d42cf06db2e0e4013c22a4956ab04e3e4b575654c3              500 main/binary-arm64/Packages.gz
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEykya6xAvD658n38yzf9dEI1m40YFAmj6iNwACgkQzf9dEI1m
+40YhEQ/6AxYF52rhDEAmsIbCWKUYKbTUOxstGuKnxdOyH3QJovXmcraNDp/MmdZa
+V5jzaDFHmqkzrR1Ge9t/XxG1DhQ4wuH/wR4iMRQV/++B22dBdX0TToqcRVssC+Yq
+VcpndUkifFuxRrl+v27mby40/UoXF1tGQFwkIODzeVNeTkFxd5qXdaOKknIR40Z5
+vMcvqG0MUSmXDVDqr+ZccEIdOxidJsRk6gLkQNjDc2+VJ/XsiZOdXGqBFcVj7Dje
+jnyBdfinUNk2wbWNA+zBQN2OrQL/LksiSSlFWid0Y9DCViKhsHZ9sAG9B6gfHCR/
+Geh+zFdgnUqy9sfPQbS/dhDSrNtuL2codjKX/RSB7dRPm2pr1t9TxwXnqtx5pb0o
+LpfmlJv6r89JT9KJarbf+7bg3Pfd3YoxmBs+mMoP8Kfl3hh3OzEBWs99z0pmc6xg
+Fmjo4OCmdf53jOXlVF2Kr/bLu7l1oxsV88tt4nT4JYoxA9oqSMlx2QAVlLeef1mf
+r4YC3+0Rc+BUPbltVkhCljegVjFKh+ZGiwNFxEOKwAIgyzra+XxxzAb8IspZOkSO
+OXM7385BiRJKQOtzPVzgOmhs2+0dZpFfKya2WlsPbpr1AUFCYjNetUbHlrxJ/EwZ
+UusxKPBZqEaa98CbPl1NsAi5/XYkgPelBgQLRTZaYTgzThCvJ1M=
+=F30i
+-----END PGP SIGNATURE-----
