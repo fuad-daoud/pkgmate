@@ -149,7 +149,7 @@
             <span class="copy-indicator">click to copy</span>
             <span class="copy-feedback">copied!</span>
             <code
-              >curl -fsSL https://apt.pkgmate.com/public.key | sudo gpg
+              >curl -fsSL https://apt.pkgmate.com/public.key | sudo gpg \
               --dearmor -o /usr/share/keyrings/pkgmate-archive-keyring.gpg</code
             >
           </div>
@@ -163,7 +163,7 @@
             <code
               >echo "deb [arch=amd64,arm64
               signed-by=/usr/share/keyrings/pkgmate-archive-keyring.gpg]
-              https://apt.pkgmate.com stable main" | sudo tee
+              https://apt.pkgmate.com stable main" | sudo tee \
               /etc/apt/sources.list.d/pkgmate.list</code
             >
           </div>
