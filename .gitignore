@@ -3,3 +3,6 @@ profile*
 dist
 tmp
 
+
+# Stakpak local files
+.stakpak
