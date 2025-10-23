@@ -23,11 +23,10 @@ jobs:
 
       - name: Install GoReleaser
         run: |
-          go install github.com/goreleaser/goreleaser/v2@latest
-          echo "/root/go/bin" >> $GITHUB_PATH
+          pacman -S --noconfirm goreleaser-bin
 
       - name: Run GoReleaser
-        run: /root/go/bin/goreleaser release --clean
+        run: goreleaser release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
