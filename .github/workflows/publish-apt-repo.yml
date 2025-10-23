@@ -8,9 +8,6 @@ on:
 permissions:
   contents: write
 
-defaults:
-  run:
-    working-directory: ./apt
 
 jobs:
   publish-apt-repo:
@@ -21,9 +18,9 @@ jobs:
 
       - name: Download release assets
         run: |
-          mkdir -p dist
-          gh release download --pattern '*.deb' --dir dist
-          ls -lh dist/*.deb
+          mkdir -p /tmp/dist
+          gh release download --pattern '*.deb' --dir /tmp/dist
+          ls -lh /tmp/dist/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -42,6 +39,7 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
+          cp -r /tmp/dist .
           git checkout origin/main -- .github/scripts/update-apt-repo.sh
           bash .github/scripts/update-apt-repo.sh
           mv apt-repo/* .
