@@ -22,7 +22,8 @@ jobs:
 
       - name: Build binaries
         run: |
-          GOOS=linux GOARCH=amd64 go build -o pkgmate-linux-amd64 ./main/main.go
+          GOOS=linux GOARCH=amd64 go build -tags dpkg -o pkgmate-linux-amd64 ./main/main.go
+          GOOS=linux GOARCH=amd64 go build -tags arch -o pkgmate-linux-amd64 ./main/main.go
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -63,4 +64,5 @@ jobs:
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           commit_message: ${{ github.ref_name }}
+          updpkgsums: "true"
           # force_push: "true"
