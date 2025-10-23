@@ -52,7 +52,7 @@ jobs:
           <html><head><meta charset="UTF-8"><title>pkgmate APT Repository</title></head>
           <body><h1>pkgmate APT Repository</h1>
           <h2>Installation</h2>
-          <pre>curl -fsSL https://fuad-daoud.github.io/pkgmate/public.key | sudo gpg --dearmor -o /usr/share/keyrings/pkgmate-archive-keyring.gpg
+          <pre>curl -fsSL https://apt.pkgmate.com/public.key | sudo gpg --dearmor -o /usr/share/keyrings/pkgmate-archive-keyring.gpg
           echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/pkgmate-archive-keyring.gpg] https://fuad-daoud.github.io/pkgmate stable main" | sudo tee /etc/apt/sources.list.d/pkgmate.list
           sudo apt update && sudo apt install pkgmate</pre>
           </body></html>
