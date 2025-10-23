@@ -38,10 +38,10 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
-          git checkout main -- .github/scripts/update-apt-repo.sh dist
+          git checkout origin/main -- .github/scripts/update-apt-repo.sh
           bash .github/scripts/update-apt-repo.sh
           mv apt-repo/* .
-          rm -rf apt-repo .github dist
+          rm -rf apt-repo .github
 
       - name: Create index.html
         run: |
