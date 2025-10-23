@@ -41,6 +41,8 @@ changelog:
       - "^docs:"
       - "^test:"
       - "^ci:"
+      - "^cicd:"
+      - "^chore:"
 
 aurs:
   - name: pkgmate-bin
