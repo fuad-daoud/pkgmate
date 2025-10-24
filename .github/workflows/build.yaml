@@ -32,6 +32,34 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Upload Linux artifacts (Arch)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkgmate-arch-${{ github.sha }}
+          path: dist/*arch*.tar.gz
+          retention-days: 7
+
+      - name: Upload Linux artifacts (Debian)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkgmate-debian-${{ github.sha }}
+          path: dist/*debian*.tar.gz
+          retention-days: 7
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkgmate-brew-${{ github.sha }}
+          path: dist/*brew*.tar.gz
+          retention-days: 7
+
+      - name: Upload all build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+          retention-days: 7
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
