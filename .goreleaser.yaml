@@ -19,6 +19,13 @@ builds:
     goos: [linux]
     goarch: [amd64, arm64]
     env: [CGO_ENABLED=0]
+  - id: pkgmate-brew
+    main: ./main/main.go
+    binary: pkgmate
+    tags: [brew]
+    goos: [darwin]
+    goarch: [amd64, arm64]
+    env: [CGO_ENABLED=0]
 
 archives:
   - id: arch-archive
@@ -31,6 +38,10 @@ archives:
     formats: ["tar.gz"]
     name_template: "{{ .ProjectName }}-debian-{{ .Os }}-{{ .Arch }}"
 
+  - id: brew-archive
+    ids: [pkgmate-brew]
+    formats: ["tar.gz"]
+    name_template: "{{ .ProjectName }}-brew-{{ .Os }}-{{ .Arch }}"
 
 checksum:
   name_template: "checksums.txt"
@@ -72,3 +83,16 @@ nfpms:
     formats:
       - deb
     bindir: /usr/bin
+
+homebrew_casks:
+  - ids: [pkgmate-brew]
+    name: pkgmate
+    homepage: "https://github.com/fuad-daoud/pkgmate"
+    description: "TUI application to manage your dependencies"
+    license: "MIT"
+    repository:
+      owner: fuad-daoud
+      name: homebrew-tap
+    commit_author:
+      name: "{{ .Env.AUR_USERNAME }}"
+      email: "{{ .Env.AUR_EMAIL }}"
