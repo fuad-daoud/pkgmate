@@ -5,104 +5,159 @@ package backend
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
+	"os"
 	"os/exec"
-	"strconv"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
-type brewInfo struct {
-	Formulae []struct {
-		Name      string `json:"name"`
-		Installed []struct {
-			Version   string `json:"version"`
-			OnRequest bool   `json:"installed_on_request"`
-			Time      int64  `json:"time"`
-		} `json:"installed"`
-	} `json:"formulae"`
-	Casks []struct {
-		Token   string `json:"token"`
-		Version string `json:"version"`
-	} `json:"casks"`
+type installReceipt struct {
+	HomebrewVersion       string   `json:"homebrew_version"`
+	UsedOptions           []string `json:"used_options"`
+	UnusedOptions         []string `json:"unused_options"`
+	BuiltAsBottle         bool     `json:"built_as_bottle"`
+	InstalledOnRequest    bool     `json:"installed_on_request"`
+	InstalledAsDependency bool     `json:"installed_as_dependency"`
+	Time                  int64    `json:"time"`
 }
 
 func LoadPackages() ([]Package, error) {
-	cmd := exec.Command("brew", "info", "--json=v2", "--installed")
-	output, err := cmd.Output()
+	cellarCmd := exec.Command("brew", "--cellar")
+	cellarOutput, err := cellarCmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to run brew info: %w", err)
+		return nil, fmt.Errorf("failed to get cellar path: %w", err)
+	}
+	cellarPath := strings.TrimSpace(string(cellarOutput))
+
+	entries, err := os.ReadDir(cellarPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read cellar: %w", err)
 	}
 
-	var info brewInfo
-	if err := json.Unmarshal(output, &info); err != nil {
-		return nil, fmt.Errorf("failed to parse brew output: %w", err)
-	}
+	packages := make([]Package, 0, len(entries))
+	results := make(chan Package, len(entries))
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, 8)
 
-	var packages []Package
-
-	// Process formulae (CLI tools, libraries)
-	for _, formula := range info.Formulae {
-		if len(formula.Installed) == 0 {
+	for _, entry := range entries {
+		if !entry.IsDir() {
 			continue
 		}
 
-		installed := formula.Installed[0]
-		size := getPackageSize(formula.Name)
+		wg.Add(1)
+		go func(pkgName string) {
+			defer wg.Done()
 
-		installDate := time.Now()
-		if installed.Time > 0 {
-			installDate = time.Unix(installed.Time, 0)
-		}
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
 
-		packages = append(packages, Package{
-			Name:    formula.Name,
-			Version: installed.Version,
-			Size:    size,
-			Date:    installDate,
-		})
+			pkgPath := filepath.Join(cellarPath, pkgName)
+
+			versions, err := os.ReadDir(pkgPath)
+			if err != nil {
+				return
+			}
+
+			for _, verEntry := range versions {
+				if !verEntry.IsDir() {
+					continue
+				}
+				installedVersion, err := getInstalledVersion(cellarPath, pkgName)
+				if err != nil {
+					panic("AAAAAAAAAAAAAAAAH")
+				}
+				if installedVersion != verEntry.Name() {
+					continue
+				}
+
+				verPath := filepath.Join(pkgPath, verEntry.Name())
+
+				receiptPath := filepath.Join(verPath, "INSTALL_RECEIPT.json")
+				receiptData, err := os.ReadFile(receiptPath)
+
+				var installDate time.Time
+				if err == nil {
+					var receipt installReceipt
+					if json.Unmarshal(receiptData, &receipt) == nil && receipt.Time > 0 {
+						installDate = time.Unix(receipt.Time, 0)
+					}
+				}
+
+				if installDate.IsZero() {
+					installDate = time.Now()
+				}
+
+				size := calculateSize(verPath)
+
+				results <- Package{
+					Name:    pkgName,
+					Version: verEntry.Name(),
+					Size:    size,
+					Date:    installDate,
+				}
+
+				break
+			}
+		}(entry.Name())
 	}
 
-	// Process casks (GUI applications)
-	for _, cask := range info.Casks {
-		size := getPackageSize(cask.Token)
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
 
-		packages = append(packages, Package{
-			Name:    cask.Token,
-			Version: cask.Version,
-			Size:    size,
-			Date:    time.Now(),
-		})
+	for pkg := range results {
+		packages = append(packages, pkg)
 	}
 
 	return packages, nil
 }
+func getInstalledVersion(cellarPath, pkgName string) (string, error) {
+	optPath := strings.Replace(cellarPath, "/Cellar", "/opt", 1)
+	linkPath := filepath.Join(optPath, pkgName)
 
-func getPackageSize(name string) int64 {
-	// Get brew prefix
-	prefixCmd := exec.Command("brew", "--prefix", name)
-	prefixOutput, err := prefixCmd.Output()
+	target, err := os.Readlink(linkPath)
 	if err != nil {
-		return 0
+		return getNewestVersion(filepath.Join(cellarPath, pkgName))
 	}
 
-	prefix := strings.TrimSpace(string(prefixOutput))
+	return filepath.Base(target), nil
+}
 
-	// Get directory size
-	cmd := exec.Command("du", "-sk", prefix)
-	output, err := cmd.Output()
-	if err != nil {
-		return 0
+func getNewestVersion(pkgPath string) (string, error) {
+	versions, _ := os.ReadDir(pkgPath)
+	if len(versions) == 0 {
+		return "", fmt.Errorf("no versions found")
 	}
 
-	parts := strings.Fields(string(output))
-	if len(parts) == 0 {
-		return 0
-	}
+	var newest string
+	var newestTime time.Time
 
-	size, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil {
-		return 0
+	for _, v := range versions {
+		info, _ := v.Info()
+		if info.ModTime().After(newestTime) {
+			newestTime = info.ModTime()
+			newest = v.Name()
+		}
 	}
+	return newest, nil
+}
 
-	return size * 1024 // Convert KB to bytes
+func calculateSize(path string) int64 {
+	var size int64
+	filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return fs.SkipDir
+		}
+		if !d.IsDir() {
+			if info, err := d.Info(); err == nil {
+				size += info.Size()
+			}
+		}
+		return nil
+	})
+	return size
 }
