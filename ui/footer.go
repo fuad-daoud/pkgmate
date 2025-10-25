@@ -74,7 +74,7 @@ func (m footerModel) Update(msg tea.Msg) (footerModel, tea.Cmd) {
 			if m.cursor != msg.cursor {
 				m.cursor = msg.cursor
 			}
-		case NewSummery:
+		case NewSummary:
 			if m.count != msg.summary.count {
 				m.count = msg.summary.count
 			}

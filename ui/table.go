@@ -11,9 +11,9 @@ import (
 type TableEvent struct {
 	cursor  int
 	event   TableEvents
-	summary TableSummery
+	summary TableSummary
 }
-type TableSummery struct {
+type TableSummary struct {
 	count int
 }
 
@@ -21,7 +21,7 @@ type TableEvents int
 
 const (
 	CursorChanged TableEvents = iota
-	NewSummery
+	NewSummary
 )
 
 type tableModel struct {
@@ -32,10 +32,10 @@ type tableModel struct {
 	event      TableEvent
 }
 
-func (m tableModel) newSummeryEvent() tea.Msg {
+func (m tableModel) newSummaryEvent() tea.Msg {
 	return TableEvent{
-		event: NewSummery,
-		summary: TableSummery{
+		event: NewSummary,
+		summary: TableSummary{
 			count: len(m.table.Rows),
 		},
 	}
@@ -74,7 +74,7 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 		m.table.Rows = rows
 		m.table.OriginalRows = rows
 		m.table.NewRows = make([][]string, len(rows))
-		commands = append(commands, m.newSummeryEvent)
+		commands = append(commands, m.newSummaryEvent)
 
 	case SearchFocusedEvent:
 		m.table.Focused = false
@@ -82,10 +82,11 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 		m.table.Focused = true
 	case SearchResetedEvent:
 		m.table.Reset()
+		commands = append(commands, m.newSummaryEvent)
 
 	case NewSearchTermEvent:
 		m.table.filterColumn("Name", msg.term)
-		commands = append(commands, m.newSummeryEvent)
+		commands = append(commands, m.newSummaryEvent)
 	}
 	var newCmd tea.Cmd
 
