@@ -92,7 +92,8 @@ homebrew_casks:
     license: "MIT"
     repository:
       owner: fuad-daoud
-      name: homebrew-tap
+      name: homebrew-pkgmate
+      token: "{{ secrets.GITHUB_TOKEN }}"
     commit_author:
       name: "{{ .Env.AUR_USERNAME }}"
       email: "{{ .Env.AUR_EMAIL }}"
