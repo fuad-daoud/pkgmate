@@ -15,8 +15,9 @@ type brewInfo struct {
 	Formulae []struct {
 		Name      string `json:"name"`
 		Installed []struct {
-			Version string `json:"version"`
-			Time    int64  `json:"installed_on_request"`
+			Version   string `json:"version"`
+			OnRequest bool   `json:"installed_on_request"`
+			Time      int64  `json:"time"`
 		} `json:"installed"`
 	} `json:"formulae"`
 	Casks []struct {
