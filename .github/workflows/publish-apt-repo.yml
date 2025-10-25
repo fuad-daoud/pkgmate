@@ -33,6 +33,7 @@ jobs:
           git checkout gh-pages
           cp index.html /tmp/index.html
           cp CNAME /tmp/CNAME
+          cp update-apt-repo.sh /tmp/update-apt-repo.sh
           git rm -rf . || true
           git clean -fxd
 
@@ -42,8 +43,7 @@ jobs:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           cp -r /tmp/dist .
-          git checkout origin/main -- .github/scripts/update-apt-repo.sh
-          bash .github/scripts/update-apt-repo.sh
+          bash /tmp/update-apt-repo.sh
           mv apt-repo/* .
           rm -rf apt-repo .github
           cp /tmp/index.html .
