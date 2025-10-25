@@ -41,7 +41,7 @@ func (m tableModel) newSummaryEvent() tea.Msg {
 	}
 }
 func (m tableModel) newCursorChangedEvent() tea.Msg {
-	return TableEvent{event: CursorChanged, cursor: m.table.cursor}
+	return TableEvent{event: CursorChanged, cursor: m.table.cursor + 1}
 }
 
 func newTable() tableModel {
@@ -74,7 +74,7 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 		m.table.Rows = rows
 		m.table.OriginalRows = rows
 		m.table.NewRows = make([][]string, len(rows))
-		commands = append(commands, m.newSummaryEvent)
+		commands = append(commands, m.newSummaryEvent, m.newCursorChangedEvent)
 
 	case SearchFocusedEvent:
 		m.table.Focused = false
