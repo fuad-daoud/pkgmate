@@ -117,7 +117,7 @@ func LoadPackages() ([]Package, error) {
 				semaphore <- struct{}{}
 				defer func() { <-semaphore }()
 
-				version, _ := getInstalledVersion(caskroomPath, caskName)
+				version, _ := getCaskVersion(caskroomPath, caskName)
 				size := getCaskSize(caskroomPath, caskName, version)
 				installedDate, _ := getCaskMetadata(caskroomPath, caskName, version)
 
@@ -240,4 +240,36 @@ func parseTimestampDir(dirName string) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return time.Unix(timestamp, 0), nil
+}
+func getCaskVersion(caskroomPath, caskName string) (string, error) {
+	caskPath := filepath.Join(caskroomPath, caskName)
+	versions, err := os.ReadDir(caskPath)
+	if err != nil {
+		return "", err
+	}
+
+	// Usually only one version installed, pick the newest by mod time
+	var newestVer string
+	var newestTime time.Time
+
+	for _, v := range versions {
+		if !v.IsDir() {
+			continue
+		}
+		if v.Name() == ".metadata" {
+			continue
+		}
+		info, _ := v.Info()
+		if info.ModTime().After(newestTime) {
+			newestTime = info.ModTime()
+			newestVer = v.Name()
+		}
+	}
+
+	if newestVer == "" && len(versions) > 0 {
+		// Fallback: use first directory
+		newestVer = versions[0].Name()
+	}
+
+	return newestVer, nil
 }
