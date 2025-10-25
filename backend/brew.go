@@ -104,6 +104,33 @@ func LoadPackages() ([]Package, error) {
 		}(entry.Name())
 	}
 
+	caskroomPath := strings.Replace(cellarPath, "/Cellar", "/Caskroom", 1)
+	if caskEntries, err := os.ReadDir(caskroomPath); err == nil {
+		for _, entry := range caskEntries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			wg.Add(1)
+			go func(caskName string) {
+				defer wg.Done()
+				semaphore <- struct{}{}
+				defer func() { <-semaphore }()
+
+				version, _ := getInstalledVersion(caskroomPath, caskName)
+				size := getCaskSize(caskroomPath, caskName, version)
+				installedDate, _ := getCaskMetadata(caskroomPath, caskName, version)
+
+				results <- Package{
+					Name:    caskName,
+					Version: version,
+					Size:    size,
+					Date:    installedDate,
+				}
+			}(entry.Name())
+		}
+	}
+
 	go func() {
 		wg.Wait()
 		close(results)
@@ -160,4 +187,57 @@ func calculateSize(path string) int64 {
 		return nil
 	})
 	return size
+}
+func getCaskSize(caskroomPath, caskName, version string) int64 {
+	caskPath := filepath.Join(caskroomPath, caskName, version)
+	size := calculateSize(caskPath)
+
+	appPaths := []string{
+		filepath.Join("/Applications", caskName+".app"),
+		filepath.Join("/Applications", strings.Title(caskName)+".app"),
+	}
+
+	for _, appPath := range appPaths {
+		info, err := os.Lstat(appPath)
+		if err != nil {
+			continue
+		}
+
+		// Only count if it's NOT a symlink (real copy)
+		if info.Mode()&os.ModeSymlink == 0 {
+			size += calculateSize(appPath)
+			break
+		}
+	}
+
+	return size
+}
+func getCaskMetadata(caskroomPath, caskName, version string) (time.Time, error) {
+	metadataPath := filepath.Join(caskroomPath, caskName, version, ".metadata")
+
+	// Check if .metadata is a directory with timestamped subdirs
+	entries, err := os.ReadDir(metadataPath)
+	if err == nil && len(entries) > 0 {
+		// Use first (usually only one) timestamp directory
+		if timestamp, err := parseTimestampDir(entries[0].Name()); err == nil {
+			return timestamp, nil
+		}
+	}
+
+	// Fallback: check directory mod time
+	if info, err := os.Stat(filepath.Join(caskroomPath, caskName, version)); err == nil {
+		return info.ModTime(), nil
+	}
+
+	return time.Now(), nil
+}
+
+func parseTimestampDir(dirName string) (time.Time, error) {
+	// Directory name is usually a Unix timestamp like "1234567890"
+	var timestamp int64
+	_, err := fmt.Sscanf(dirName, "%d", &timestamp)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.Unix(timestamp, 0), nil
 }
