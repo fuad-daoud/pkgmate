@@ -165,6 +165,14 @@ func (m *customTable) View() string {
 	return b.String()
 }
 
+func (m *customTable) updateRows(rows [][]string) {
+	m.OriginalRows = rows
+	m.Rows = m.OriginalRows
+	m.NewRows = make([][]string, len(m.OriginalRows))
+	m.cursor = 0
+	m.adjustOffset()
+}
+
 func (m *customTable) filterColumn(column, term string) {
 
 	index := 0

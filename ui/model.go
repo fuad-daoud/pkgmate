@@ -3,8 +3,6 @@ package ui
 import (
 	"fmt"
 	"log/slog"
-	"os"
-	"pkgmate/backend"
 	"reflect"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -37,22 +35,17 @@ func InitialModel() model {
 	}
 }
 
-func fetchPackages() tea.Msg {
-	pkgs, err := backend.LoadPackages()
-	if err != nil {
-		os.Exit(1)
-	}
-	return pkgs
-}
+type ProgramInitEvent struct{}
 
 func (m model) Init() tea.Cmd {
-	return fetchPackages
+	return func() tea.Msg {return ProgramInitEvent{}}
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	slog.Info("New event", "type", reflect.TypeOf(msg))
 	commands := make([]tea.Cmd, 0)
 	switch msg := msg.(type) {
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -76,7 +69,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.footer.search.Focused() {
 				return m, tea.Quit
 			}
-		case "ctrl+_":
+		case "ctrl+d":
 			m.showDebug = !m.showDebug
 		}
 	}
