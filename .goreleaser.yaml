@@ -12,6 +12,8 @@ builds:
     goos: [linux]
     goarch: [amd64]
     env: [CGO_ENABLED=1]
+    ldflags:
+      - -s -w -X pkgmate/ui.Version={{.Version}}
   - id: pkgmate-debian
     main: ./main/main.go
     binary: pkgmate
@@ -19,6 +21,8 @@ builds:
     goos: [linux]
     goarch: [amd64, arm64]
     env: [CGO_ENABLED=0]
+    ldflags:
+      - -s -w -X pkgmate/ui.Version={{.Version}}
   - id: pkgmate-brew
     main: ./main/main.go
     binary: pkgmate
@@ -26,6 +30,8 @@ builds:
     goos: [darwin]
     goarch: [amd64, arm64]
     env: [CGO_ENABLED=0]
+    ldflags:
+      - -s -w -X pkgmate/ui.Version={{.Version}}
 
 archives:
   - id: arch-archive

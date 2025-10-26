@@ -24,9 +24,9 @@ func (m headerModel) newHeaderResizeEvent() tea.Msg {
 		height: lipgloss.Height(v),
 	}
 }
-
+var Version = "dev"
 func newHeader() headerModel {
-	return headerModel{info: "Pkgmate v0.0.0", tabs: []string{"Direct Packages", "Dependency Packages", "All Packages"}}
+	return headerModel{info: "Pkgmate " + Version, tabs: []string{"Direct Packages", "Dependency Packages", "All Packages"}}
 }
 
 func (m headerModel) Update(msg tea.Msg) (headerModel, tea.Cmd) {
