@@ -273,3 +273,7 @@ func getCaskVersion(caskroomPath, caskName string) (string, error) {
 
 	return newestVer, nil
 }
+
+func LoadDirectPackages() ([]Package, error) { return nil, nil }
+
+func LoadDepedencyPackages() ([]Package, error) { return nil, nil }

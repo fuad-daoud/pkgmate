@@ -38,7 +38,7 @@ func InitialModel() model {
 type ProgramInitEvent struct{}
 
 func (m model) Init() tea.Cmd {
-	return func() tea.Msg {return ProgramInitEvent{}}
+	return func() tea.Msg { return ProgramInitEvent{} }
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

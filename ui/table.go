@@ -59,6 +59,7 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 	case ProgramInitEvent:
 		pkgs, err := m.fetchers[m.activeFetcher]()
 		if err != nil {
+			slog.Error("error using fetcher", "activeFetcher", m.activeFetcher)
 			os.Exit(1)
 		}
 
@@ -101,6 +102,7 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 
 		pkgs, err := m.fetchers[m.activeFetcher]()
 		if err != nil {
+			slog.Error("error using fetcher", "activeFetcher", m.activeFetcher)
 			os.Exit(1)
 		}
 

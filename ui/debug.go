@@ -29,6 +29,7 @@ var format = fmt.Sprintf
 func newDebugModel() *debugModel {
 	f, err := os.OpenFile(debugLogFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
+		slog.Error("Failed to open debug file", "err", err)
 		os.Exit(1)
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(f, nil)))
