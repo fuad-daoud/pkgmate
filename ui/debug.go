@@ -22,9 +22,7 @@ func (m debugModel) content() string {
 
 var debug = newDebugModel()
 
-const debugLogFile = "debug.log"
-
-var format = fmt.Sprintf
+const debugLogFile = "/tmp/debug.log"
 
 func newDebugModel() *debugModel {
 	f, err := os.OpenFile(debugLogFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)

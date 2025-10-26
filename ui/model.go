@@ -69,7 +69,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.footer.search.Focused() {
 				return m, tea.Quit
 			}
-		case "ctrl+d":
+		case "ctrl+p":
 			m.showDebug = !m.showDebug
 		}
 	}
