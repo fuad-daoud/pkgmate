@@ -48,6 +48,7 @@ jobs:
           rm -rf apt-repo .github
           cp /tmp/index.html .
           cp /tmp/CNAME .
+          cp /tmp/update-apt-repo.sh .
 
       - name: Commit and push
         run: |
