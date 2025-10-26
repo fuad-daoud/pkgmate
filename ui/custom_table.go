@@ -62,8 +62,8 @@ func (m customTable) Update(msg tea.Msg) (customTable, tea.Cmd) {
 			m.updateCursor(10 - m.Height)
 		case key.Matches(msg, key.NewBinding(key.WithKeys("pgdown", "ctrl+d"))):
 			m.updateCursor(m.Height - 10)
-		case key.Matches(msg, key.NewBinding(key.WithKeys("home", "g"))):
-			m.updateCursor(0)
+		case key.Matches(msg, key.NewBinding(key.WithKeys("home", "ctrl+g"))):
+			m.updateCursor(len(m.Rows) * -1)
 		case key.Matches(msg, key.NewBinding(key.WithKeys("end", "G"))):
 			m.updateCursor(len(m.Rows))
 		}
@@ -73,7 +73,7 @@ func (m customTable) Update(msg tea.Msg) (customTable, tea.Cmd) {
 }
 
 func (m *customTable) updateCursor(n int) {
-	m.cursor = max(0, min(m.cursor+n, len(m.Rows) - 1))
+	m.cursor = max(0, min(m.cursor+n, len(m.Rows)-1))
 	m.adjustOffset()
 }
 

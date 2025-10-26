@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -81,14 +82,14 @@ func (m footerModel) Update(msg tea.Msg) (footerModel, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "/":
+		switch {
+		case key.Matches(msg, key.NewBinding(key.WithKeys("/", "ctrl+f"))):
 			if !m.search.Focused() {
 				m.search.Focus()
 				return m, tea.Batch(m.focusSearch, textinput.Blink)
 			}
 
-		case "esc":
+		case key.Matches(msg, key.NewBinding(key.WithKeys("esc"))):
 			if m.search.Focused() {
 				m.search.Blur()
 				m.search.Reset()
@@ -96,7 +97,7 @@ func (m footerModel) Update(msg tea.Msg) (footerModel, tea.Cmd) {
 				return m, m.resetSearch
 			}
 
-		case "enter":
+		case key.Matches(msg, key.NewBinding(key.WithKeys("enter"))):
 			if m.search.Focused() {
 				m.search.Blur()
 				return m, m.blurSearch
