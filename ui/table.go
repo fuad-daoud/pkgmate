@@ -2,6 +2,7 @@ package ui
 
 import (
 	"log/slog"
+	"os"
 	"pkgmate/backend"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -11,9 +12,9 @@ import (
 type TableEvent struct {
 	cursor  int
 	event   TableEvents
-	summary TableSummery
+	summary TableSummary
 }
-type TableSummery struct {
+type TableSummary struct {
 	count int
 }
 
@@ -21,36 +22,55 @@ type TableEvents int
 
 const (
 	CursorChanged TableEvents = iota
-	NewSummery
+	NewSummary
 )
 
 type tableModel struct {
-	table      customTable
-	rows       []table.Row
-	newRows    []table.Row
-	lastCursor int
-	event      TableEvent
+	table         customTable
+	rows          []table.Row
+	newRows       []table.Row
+	lastCursor    int
+	event         TableEvent
+	fetchers      []fetcher
+	activeFetcher int
 }
 
-func (m tableModel) newSummeryEvent() tea.Msg {
+type fetcher func() ([]backend.Package, error)
+
+func (m tableModel) newSummaryEvent() tea.Msg {
 	return TableEvent{
-		event: NewSummery,
-		summary: TableSummery{
+		event: NewSummary,
+		summary: TableSummary{
 			count: len(m.table.Rows),
 		},
 	}
 }
 func (m tableModel) newCursorChangedEvent() tea.Msg {
-	return TableEvent{event: CursorChanged, cursor: m.table.cursor}
+	return TableEvent{event: CursorChanged, cursor: m.table.cursor + 1}
 }
 
 func newTable() tableModel {
-	return tableModel{table: *newCustomTable()}
+	return tableModel{table: *newCustomTable(), fetchers: []fetcher{backend.LoadDirectPackages, backend.LoadDepedencyPackages, backend.LoadPackages}}
 }
 
 func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 	var commands []tea.Cmd
 	switch msg := msg.(type) {
+	case ProgramInitEvent:
+		pkgs, err := m.fetchers[m.activeFetcher]()
+		if err != nil {
+			slog.Error("error using fetcher", "activeFetcher", m.activeFetcher)
+			os.Exit(1)
+		}
+
+		rows := [][]string{}
+		for _, pkg := range pkgs {
+			row := table.Row{pkg.Name, pkg.Version, pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
+			rows = append(rows, row)
+		}
+		m.table.updateRows(rows)
+		commands = append(commands, m.newSummaryEvent, m.newCursorChangedEvent)
+
 	case DisplayResizeEvent:
 		slog.Info("got window resize message", "msg", msg)
 		m.table.Height = msg.height
@@ -64,28 +84,35 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 		}
 
 		m.table.Columns = columns
-
-	case []backend.Package:
-		rows := [][]string{}
-		for _, pkg := range msg {
-			row := table.Row{pkg.Name, pkg.Version, pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
-			rows = append(rows, row)
-		}
-		m.table.Rows = rows
-		m.table.OriginalRows = rows
-		m.table.NewRows = make([][]string, len(rows))
-		commands = append(commands, m.newSummeryEvent)
-
 	case SearchFocusedEvent:
 		m.table.Focused = false
 	case SearchBluredEvent:
 		m.table.Focused = true
 	case SearchResetedEvent:
 		m.table.Reset()
+		commands = append(commands, m.newSummaryEvent)
 
 	case NewSearchTermEvent:
 		m.table.filterColumn("Name", msg.term)
-		commands = append(commands, m.newSummeryEvent)
+		commands = append(commands, m.newSummaryEvent)
+
+	case ChangeTabEvent:
+		m.activeFetcher += 1
+		m.activeFetcher %= len(m.fetchers)
+
+		pkgs, err := m.fetchers[m.activeFetcher]()
+		if err != nil {
+			slog.Error("error using fetcher", "activeFetcher", m.activeFetcher)
+			os.Exit(1)
+		}
+
+		rows := [][]string{}
+		for _, pkg := range pkgs {
+			row := table.Row{pkg.Name, pkg.Version, pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
+			rows = append(rows, row)
+		}
+		m.table.updateRows(rows)
+		commands = append(commands, m.newSummaryEvent, m.newCursorChangedEvent)
 	}
 	var newCmd tea.Cmd
 

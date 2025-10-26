@@ -43,9 +43,13 @@ var (
 			Border(lipgloss.RoundedBorder(), false, true, true, false).
 			MarginTop(1)
 
-	topTab = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder(), false, true, true, true).
-		MarginBottom(0)
+	topRightTab = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder(), false, false, true, true).
+			MarginBottom(0)
+
+	topLeftTab = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder(), false, true, true, false).
+			MarginBottom(0)
 	frameStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
 	spaceStyle = lipgloss.NewStyle()
 )

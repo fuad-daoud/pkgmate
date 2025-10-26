@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -10,12 +11,12 @@ const (
 	TableDisplay SelectedDisplay = iota
 )
 
-type DisplayEvent any
-
 type DisplayResizeEvent struct {
 	height int
 	width  int
 }
+
+type ChangeTabEvent struct{}
 
 type displayModel struct {
 	table        tableModel
@@ -35,6 +36,10 @@ func (m displayModel) newDisplayResizeEvent() tea.Msg {
 		width:  m.width,
 		height: m.height,
 	}
+}
+
+func (displayModel) newChangeTabEvent() tea.Msg {
+	return ChangeTabEvent{}
 }
 
 func newDisplay() displayModel {
@@ -78,11 +83,22 @@ func (m displayModel) Update(msg tea.Msg) (displayModel, tea.Cmd) {
 			commands = append(commands, m.newDisplayResizeEvent)
 		}
 
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, key.NewBinding(key.WithKeys("tab"))):
+			if m.focused() {
+				commands = append(commands, m.newChangeTabEvent)
+			}
+		}
 	}
 	var cmd tea.Cmd
 	m.table, cmd = m.table.Update(msg)
 	commands = append(commands, cmd)
 	return m, tea.Batch(commands...)
+}
+
+func (m displayModel) focused() bool {
+	return m.table.table.Focused
 }
 
 func (m displayModel) View() string {

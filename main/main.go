@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log/slog"
 	"os"
 	"pkgmate/ui"
 
@@ -19,7 +19,7 @@ func main() {
 
 	p := tea.NewProgram(ui.InitialModel(), tea.WithAltScreen(), tea.WithFPS(24))
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("Error: %v\n", err)
+		slog.Error("Failed to run", "err", err)
 		os.Exit(1)
 	}
 }

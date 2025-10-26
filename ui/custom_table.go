@@ -65,7 +65,7 @@ func (m customTable) Update(msg tea.Msg) (customTable, tea.Cmd) {
 		case key.Matches(msg, key.NewBinding(key.WithKeys("home", "g"))):
 			m.updateCursor(0)
 		case key.Matches(msg, key.NewBinding(key.WithKeys("end", "G"))):
-			m.cursor = len(m.Rows) - 1
+			m.updateCursor(len(m.Rows))
 		}
 	}
 
@@ -73,7 +73,7 @@ func (m customTable) Update(msg tea.Msg) (customTable, tea.Cmd) {
 }
 
 func (m *customTable) updateCursor(n int) {
-	m.cursor = max(0, min(m.cursor+n, len(m.Rows)))
+	m.cursor = max(0, min(m.cursor+n, len(m.Rows) - 1))
 	m.adjustOffset()
 }
 
@@ -163,6 +163,14 @@ func (m *customTable) View() string {
 	}
 
 	return b.String()
+}
+
+func (m *customTable) updateRows(rows [][]string) {
+	m.OriginalRows = rows
+	m.Rows = m.OriginalRows
+	m.NewRows = make([][]string, len(m.OriginalRows))
+	m.cursor = 0
+	m.adjustOffset()
 }
 
 func (m *customTable) filterColumn(column, term string) {
