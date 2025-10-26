@@ -24,7 +24,9 @@ type installReceipt struct {
 	Time                  int64    `json:"time"`
 }
 
-func LoadPackages() ([]Package, error) {
+type packageFilter func(receipt *installReceipt) bool
+
+func loadPackagesWithFilter(filter packageFilter) ([]Package, error) {
 	cellarCmd := exec.Command("brew", "--cellar")
 	cellarOutput, err := cellarCmd.Output()
 	if err != nil {
@@ -67,7 +69,7 @@ func LoadPackages() ([]Package, error) {
 				}
 				installedVersion, err := getInstalledVersion(cellarPath, pkgName)
 				if err != nil {
-					panic("AAAAAAAAAAAAAAAAH")
+					return
 				}
 				if installedVersion != verEntry.Name() {
 					continue
@@ -79,10 +81,15 @@ func LoadPackages() ([]Package, error) {
 				receiptData, err := os.ReadFile(receiptPath)
 
 				var installDate time.Time
-				if err == nil {
-					var receipt installReceipt
-					if json.Unmarshal(receiptData, &receipt) == nil && receipt.Time > 0 {
+				var receipt installReceipt
+				if err == nil && json.Unmarshal(receiptData, &receipt) == nil {
+					if receipt.Time > 0 {
 						installDate = time.Unix(receipt.Time, 0)
+					}
+					
+					// Apply filter if provided
+					if filter != nil && !filter(&receipt) {
+						return
 					}
 				}
 
@@ -104,30 +111,36 @@ func LoadPackages() ([]Package, error) {
 		}(entry.Name())
 	}
 
+	// Casks are always considered direct installs
 	caskroomPath := strings.Replace(cellarPath, "/Cellar", "/Caskroom", 1)
 	if caskEntries, err := os.ReadDir(caskroomPath); err == nil {
-		for _, entry := range caskEntries {
-			if !entry.IsDir() {
-				continue
-			}
-
-			wg.Add(1)
-			go func(caskName string) {
-				defer wg.Done()
-				semaphore <- struct{}{}
-				defer func() { <-semaphore }()
-
-				version, _ := getCaskVersion(caskroomPath, caskName)
-				size := getCaskSize(caskroomPath, caskName, version)
-				installedDate, _ := getCaskMetadata(caskroomPath, caskName, version)
-
-				results <- Package{
-					Name:    caskName,
-					Version: version,
-					Size:    size,
-					Date:    installedDate,
+		// Only include casks if filter allows it (no filter or direct packages filter)
+		includeCasks := filter == nil || filter(&installReceipt{InstalledOnRequest: true})
+		
+		if includeCasks {
+			for _, entry := range caskEntries {
+				if !entry.IsDir() {
+					continue
 				}
-			}(entry.Name())
+
+				wg.Add(1)
+				go func(caskName string) {
+					defer wg.Done()
+					semaphore <- struct{}{}
+					defer func() { <-semaphore }()
+
+					version, _ := getCaskVersion(caskroomPath, caskName)
+					size := getCaskSize(caskroomPath, caskName, version)
+					installedDate, _ := getCaskMetadata(caskroomPath, caskName, version)
+
+					results <- Package{
+						Name:    caskName,
+						Version: version,
+						Size:    size,
+						Date:    installedDate,
+					}
+				}(entry.Name())
+			}
 		}
 	}
 
@@ -142,6 +155,23 @@ func LoadPackages() ([]Package, error) {
 
 	return packages, nil
 }
+
+func LoadPackages() ([]Package, error) {
+	return loadPackagesWithFilter(nil)
+}
+
+func LoadDirectPackages() ([]Package, error) {
+	return loadPackagesWithFilter(func(r *installReceipt) bool {
+		return r.InstalledOnRequest
+	})
+}
+
+func LoadDepedencyPackages() ([]Package, error) {
+	return loadPackagesWithFilter(func(r *installReceipt) bool {
+		return r.InstalledAsDependency
+	})
+}
+
 func getInstalledVersion(cellarPath, pkgName string) (string, error) {
 	optPath := strings.Replace(cellarPath, "/Cellar", "/opt", 1)
 	linkPath := filepath.Join(optPath, pkgName)
@@ -188,6 +218,7 @@ func calculateSize(path string) int64 {
 	})
 	return size
 }
+
 func getCaskSize(caskroomPath, caskName, version string) int64 {
 	caskPath := filepath.Join(caskroomPath, caskName, version)
 	size := calculateSize(caskPath)
@@ -212,6 +243,7 @@ func getCaskSize(caskroomPath, caskName, version string) int64 {
 
 	return size
 }
+
 func getCaskMetadata(caskroomPath, caskName, version string) (time.Time, error) {
 	metadataPath := filepath.Join(caskroomPath, caskName, version, ".metadata")
 
@@ -241,6 +273,7 @@ func parseTimestampDir(dirName string) (time.Time, error) {
 	}
 	return time.Unix(timestamp, 0), nil
 }
+
 func getCaskVersion(caskroomPath, caskName string) (string, error) {
 	caskPath := filepath.Join(caskroomPath, caskName)
 	versions, err := os.ReadDir(caskPath)
@@ -273,7 +306,3 @@ func getCaskVersion(caskroomPath, caskName string) (string, error) {
 
 	return newestVer, nil
 }
-
-func LoadDirectPackages() ([]Package, error) { return nil, nil }
-
-func LoadDepedencyPackages() ([]Package, error) { return nil, nil }
