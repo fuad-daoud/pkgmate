@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
@@ -12,32 +13,38 @@ import (
 )
 
 type debugModel struct {
+	mode     AppMode
+	file     string
 	viewport viewport.Model
 }
 
 func (m debugModel) content() string {
-	content, _ := os.ReadFile(debugLogFile)
+	content, _ := os.ReadFile(m.file)
 	return string(content)
 }
 
-var debug = newDebugModel()
-
-const debugLogFile = "/tmp/debug.log"
-
-func newDebugModel() *debugModel {
+func newDebug(mode AppMode) *debugModel {
+	var logDir string
+	if mode == ModePrivileged {
+		logDir = "/tmp/root"
+	} else {
+		logDir = "/tmp/user"
+	}
+	os.MkdirAll(logDir, 0755)
+	debugLogFile := filepath.Join(logDir, "debug.log")
 	f, err := os.OpenFile(debugLogFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		slog.Error("Failed to open debug file", "err", err)
 		os.Exit(1)
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(f, nil)))
-	return &debugModel{}
+	return &debugModel{file: debugLogFile}
 }
 
 func (m *debugModel) Update(msg tea.Msg) (*debugModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.viewport = viewport.New(msg.Width-2 , msg.Height-5) // -2 because of the frame -5 because of the frame and the footer
+		m.viewport = viewport.New(msg.Width-2, msg.Height-5) // -2 because of the frame -5 because of the frame and the footer
 	}
 
 	m.viewport.SetContent(m.content())

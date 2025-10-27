@@ -17,7 +17,9 @@ func main() {
 	// 	http.ListenAndServe("localhost:6060", nil)
 	// }()
 
-	p := tea.NewProgram(ui.InitialModel(), tea.WithAltScreen(), tea.WithFPS(24))
+	isPrivileged := os.Geteuid() == 0
+
+	p := tea.NewProgram(ui.InitialModel(isPrivileged), tea.WithAltScreen(), tea.WithFPS(24))
 	if _, err := p.Run(); err != nil {
 		slog.Error("Failed to run", "err", err)
 		os.Exit(1)

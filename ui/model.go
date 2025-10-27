@@ -10,7 +10,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+type AppMode int
+
+const (
+	ModeNormal AppMode = iota
+	ModePrivileged
+)
+
 type model struct {
+	mode           AppMode
 	width          int
 	height         int
 	viewportHeight int
@@ -18,18 +26,25 @@ type model struct {
 	header         headerModel
 	displayModel   displayModel
 	footer         footerModel
+	debug          *debugModel
 	showDebug      bool
 	spin           spinner.Model
 	showSpinner    bool
 }
 
-func InitialModel() model {
+func InitialModel(isPrivileged bool) model {
 	spin := spinner.New(spinner.WithSpinner(spinner.Monkey))
+	mode := ModeNormal
+	if isPrivileged {
+		mode = ModePrivileged
+	}
 
 	return model{
-		header:       newHeader(),
+		mode:         mode,
+		header:       newHeader(mode),
 		displayModel: newDisplay(),
 		footer:       newFooter(),
+		debug:        newDebug(mode),
 		showDebug:    false,
 		spin:         spin,
 	}
@@ -87,7 +102,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	commands = append(commands, headerCmd)
 
 	var debugCmd tea.Cmd
-	debug, debugCmd = debug.Update(msg)
+	m.debug, debugCmd = m.debug.Update(msg)
 	commands = append(commands, debugCmd)
 
 	return m, tea.Batch(commands...)
@@ -95,7 +110,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if m.showDebug {
-		content := frameStyle.Render(debug.View())
+		content := frameStyle.Render(m.debug.View())
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 	}
 	if m.showSpinner {
