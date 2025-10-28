@@ -1,0 +1,23 @@
+services:
+  arch:
+    image: archlinux:latest
+    volumes:
+      - ./dist/pkgmate-arch_linux_amd64_v1/:/dist:ro
+    stdin_open: true
+    tty: true
+
+  debian:
+    image: debian:latest
+    volumes:
+      - ./dist/pkgmate-debian_linux_amd64_v1/:/dist:ro
+    stdin_open: true
+    tty: true
+
+  brew:
+    image: ubuntu:22.04
+    volumes:
+      - ./dist/pkgmate-brew_darwin_amd64_v1/:/dist:ro
+    stdin_open: true
+    tty: true
+    environment:
+      - HOMEBREW_NO_AUTO_UPDATE=1
