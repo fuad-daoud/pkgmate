@@ -2,14 +2,14 @@ services:
   arch:
     image: archlinux:latest
     volumes:
-      - ./dist/pkgmate-arch_linux_amd64_v1/:/dist:ro
+      - ./dist/pkgmate-arch_linux_amd64_v1/pkgmate:/pkgmate:ro
     stdin_open: true
     tty: true
 
   debian:
     image: debian:latest
     volumes:
-      - ./dist/pkgmate-debian_linux_amd64_v1/:/dist:ro
+      - ./dist/pkgmate-debian_linux_amd64_v1/pkgmate:/pkgmate:ro
     stdin_open: true
     tty: true
 
