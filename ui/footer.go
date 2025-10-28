@@ -125,9 +125,12 @@ func (m footerModel) Update(msg tea.Msg) (footerModel, tea.Cmd) {
 			return m, m.resetSearch
 
 		case key.Matches(msg, key.NewBinding(key.WithKeys("enter"))):
+			m.search.Blur()
+
 			m.keys.reset.SetEnabled(true)
 			m.keys.submit.SetEnabled(false)
 			m.keys.search.SetEnabled(true)
+			return m, m.blurSearch
 		default:
 			if m.search.Focused() && !slices.Contains(msg.Runes, '?') {
 				var cmd tea.Cmd
