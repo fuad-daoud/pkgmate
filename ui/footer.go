@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -21,7 +22,22 @@ type SearchBluredEvent struct{}
 type SearchFocusedEvent struct{}
 type SearchResetedEvent struct{}
 
+type footerKeyMap struct {
+	search key.Binding
+	reset  key.Binding
+	submit key.Binding
+}
+
+func (k footerKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.search}
+}
+
+func (k footerKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{{k.search, k.reset, k.submit}}
+}
+
 type footerModel struct {
+	keys         *footerKeyMap
 	search       textinput.Model
 	count        int
 	cursor       int
@@ -36,7 +52,12 @@ func newFooter() footerModel {
 	ti.CharLimit = 50
 	ti.Width = 50
 	ti.ShowSuggestions = false
-	return footerModel{search: ti, count: -1}
+	keys := footerKeyMap{
+		search: key.NewBinding(key.WithKeys("/", "ctrl+f"), key.WithHelp("//ctrl+f", "focus search box")),
+		reset:  key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "reset search"), key.WithDisabled()),
+		submit: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "submit search"), key.WithDisabled()),
+	}
+	return footerModel{keys: &keys, search: ti, count: -1}
 }
 
 func (m footerModel) blurSearch() tea.Msg {
@@ -84,39 +105,46 @@ func (m footerModel) Update(msg tea.Msg) (footerModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, key.NewBinding(key.WithKeys("/", "ctrl+f"))):
-			if !m.search.Focused() {
-				m.search.Focus()
-				return m, tea.Batch(m.focusSearch, textinput.Blink)
-			}
+			m.search.Focus()
+
+			m.keys.reset.SetEnabled(true)
+			m.keys.submit.SetEnabled(true)
+			m.keys.search.SetEnabled(false)
+
+			return m, tea.Batch(m.focusSearch, textinput.Blink)
 
 		case key.Matches(msg, key.NewBinding(key.WithKeys("esc"))):
-			if m.search.Focused() {
-				m.search.Blur()
-				m.search.Reset()
-				m.search.SetValue("")
-				return m, m.resetSearch
-			}
+			m.search.Blur()
+			m.search.Reset()
+			m.search.SetValue("")
+
+			m.keys.reset.SetEnabled(false)
+			m.keys.submit.SetEnabled(false)
+			m.keys.search.SetEnabled(true)
+
+			return m, m.resetSearch
 
 		case key.Matches(msg, key.NewBinding(key.WithKeys("enter"))):
-			if m.search.Focused() {
-				m.search.Blur()
-				return m, m.blurSearch
+			m.keys.reset.SetEnabled(true)
+			m.keys.submit.SetEnabled(false)
+			m.keys.search.SetEnabled(true)
+		default:
+			if m.search.Focused() && !slices.Contains(msg.Runes, '?') {
+				var cmd tea.Cmd
+				m.search, cmd = m.search.Update(msg)
+				term := strings.ToLower(m.search.Value())
+				if m.previousTerm == term {
+					return m, cmd
+				}
+				m.previousTerm = term
+
+				return m, m.newSearchTermEvent
 			}
-			return m, tea.Batch(commands...)
+
 		}
+
 	}
 
-	if m.search.Focused() {
-		var cmd tea.Cmd
-		m.search, cmd = m.search.Update(msg)
-		term := strings.ToLower(m.search.Value())
-		if m.previousTerm == term {
-			return m, cmd
-		}
-		m.previousTerm = term
-
-		return m, m.newSearchTermEvent
-	}
 	return m, tea.Batch(commands...)
 }
 
