@@ -12,7 +12,25 @@ type Column struct {
 	Title string
 }
 
+type tableKeyMap struct {
+	up       key.Binding
+	down     key.Binding
+	pageup   key.Binding
+	pagedown key.Binding
+	first    key.Binding
+	last     key.Binding
+}
+
+func (k tableKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.up, k.down}
+}
+
+func (k tableKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{{k.up, k.down, k.pageup, k.pagedown}, {k.first, k.last}}
+}
+
 type customTable struct {
+	keys          *tableKeyMap
 	Columns       []string
 	OriginalRows  [][]string
 	Rows          [][]string
@@ -21,7 +39,7 @@ type customTable struct {
 	offset        int
 	Height        int
 	Width         int
-	Focused       bool
+	focused       bool
 	selectedRow   int
 	headerStyle   lipgloss.Style
 	selectedStyle lipgloss.Style
@@ -29,21 +47,52 @@ type customTable struct {
 }
 
 func newCustomTable() *customTable {
+	keys := tableKeyMap{
+		up:       key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "move up")),
+		down:     key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "move down")),
+		pageup:   key.NewBinding(key.WithKeys("pgup", "ctrl+u"), key.WithHelp("pageup/ctrl+u", "jump up")),
+		pagedown: key.NewBinding(key.WithKeys("pgdown", "ctrl+d"), key.WithHelp("pagedown/ctrl+d", "jump down")),
+		first:    key.NewBinding(key.WithKeys("home", "ctrl+g"), key.WithHelp("home/ctrl+g", "move to first")),
+		last:     key.NewBinding(key.WithKeys("end", "G"), key.WithHelp("end/G", "move to last")),
+	}
 	return &customTable{
+		keys:          &keys,
 		Columns:       []string{},
 		Rows:          [][]string{},
 		NewRows:       [][]string{},
 		cursor:        0,
 		offset:        0,
-		Focused:       true,
+		focused:       true,
 		headerStyle:   lipgloss.NewStyle().Bold(true).Padding(0, 1).BorderStyle(lipgloss.NormalBorder()).BorderBottom(true),
 		selectedStyle: lipgloss.NewStyle().Bold(false).Foreground(lipgloss.Color("#FFFFFF")).Background(lipgloss.Color("#4355ff")).Padding(0, 1),
 		cellStyle:     lipgloss.NewStyle().Padding(0, 1),
 	}
 }
 
+func (m *customTable) Blur() {
+	m.focused = false
+	m.keys.up.SetEnabled(false)
+	m.keys.down.SetEnabled(false)
+	m.keys.pageup.SetEnabled(false)
+	m.keys.pagedown.SetEnabled(false)
+	m.keys.first.SetEnabled(false)
+	m.keys.last.SetEnabled(false)
+}
+func (m *customTable) Focus() {
+	m.focused = true
+	m.keys.up.SetEnabled(true)
+	m.keys.down.SetEnabled(true)
+	m.keys.pageup.SetEnabled(true)
+	m.keys.pagedown.SetEnabled(true)
+	m.keys.first.SetEnabled(true)
+	m.keys.last.SetEnabled(true)
+}
+func (m customTable) Focused() bool {
+	return m.focused
+}
+
 func (m customTable) Update(msg tea.Msg) (customTable, tea.Cmd) {
-	if !m.Focused {
+	if !m.focused {
 		return m, nil
 	}
 
@@ -54,17 +103,17 @@ func (m customTable) Update(msg tea.Msg) (customTable, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, key.NewBinding(key.WithKeys("up", "k"))):
+		case key.Matches(msg, m.keys.up):
 			m.updateCursor(-1)
-		case key.Matches(msg, key.NewBinding(key.WithKeys("down", "j"))):
+		case key.Matches(msg, m.keys.down):
 			m.updateCursor(1)
-		case key.Matches(msg, key.NewBinding(key.WithKeys("pgup", "ctrl+u"))):
+		case key.Matches(msg, m.keys.pageup):
 			m.updateCursor(10 - m.Height)
-		case key.Matches(msg, key.NewBinding(key.WithKeys("pgdown", "ctrl+d"))):
+		case key.Matches(msg, m.keys.pagedown):
 			m.updateCursor(m.Height - 10)
-		case key.Matches(msg, key.NewBinding(key.WithKeys("home", "ctrl+g"))):
+		case key.Matches(msg, m.keys.first):
 			m.updateCursor(len(m.Rows) * -1)
-		case key.Matches(msg, key.NewBinding(key.WithKeys("end", "G"))):
+		case key.Matches(msg, m.keys.last):
 			m.updateCursor(len(m.Rows))
 		}
 	}
@@ -79,7 +128,7 @@ func (m *customTable) updateCursor(n int) {
 
 func (m *customTable) Reset() {
 	m.cursor = 0
-	m.Focused = true
+	m.Focus()
 	m.Rows = m.OriginalRows
 
 }
@@ -144,7 +193,7 @@ func (m *customTable) View() string {
 			}
 
 			style := m.cellStyle
-			if i == m.cursor && m.Focused {
+			if i == m.cursor && m.Focused() {
 				style = m.selectedStyle
 			}
 

@@ -85,9 +85,9 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 
 		m.table.Columns = columns
 	case SearchFocusedEvent:
-		m.table.Focused = false
+		m.table.Blur()
 	case SearchBluredEvent:
-		m.table.Focused = true
+		m.table.Focus()
 	case SearchResetedEvent:
 		m.table.Reset()
 		commands = append(commands, m.newSummaryEvent)

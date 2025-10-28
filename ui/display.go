@@ -18,9 +18,23 @@ type DisplayResizeEvent struct {
 
 type ChangeTabEvent struct{}
 
+type displayKeyMap struct {
+	tab key.Binding
+}
+
+func (k displayKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.tab}
+}
+
+func (k displayKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{{k.tab}}
+}
+
 type displayModel struct {
+	keys         *displayKeyMap
 	table        tableModel
 	selected     SelectedDisplay
+	focused      bool
 	headerHeight int
 	headerWidth  int
 	footerHeight int
@@ -43,7 +57,12 @@ func (displayModel) newChangeTabEvent() tea.Msg {
 }
 
 func newDisplay() displayModel {
-	return displayModel{
+
+	keys := displayKeyMap{
+		tab: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "shift through tabs")),
+	}
+	m := displayModel{
+		keys:         &keys,
 		table:        newTable(),
 		selected:     TableDisplay,
 		headerHeight: -1,
@@ -53,6 +72,8 @@ func newDisplay() displayModel {
 		baseHeight:   -1,
 		baseWidth:    -1,
 	}
+
+	return m
 }
 
 func (m displayModel) Update(msg tea.Msg) (displayModel, tea.Cmd) {
@@ -61,7 +82,7 @@ func (m displayModel) Update(msg tea.Msg) (displayModel, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	case tea.WindowSizeMsg:
-		m.baseHeight = msg.Height - 6 // 4 for the frame space and 2 for safe resize rendering
+		m.baseHeight = msg.Height - 8 // 4 for the frame space and 2 for safe resize rendering 2 for the help menu
 		m.baseWidth = msg.Width
 		m.width = m.baseWidth
 
@@ -83,12 +104,15 @@ func (m displayModel) Update(msg tea.Msg) (displayModel, tea.Cmd) {
 			commands = append(commands, m.newDisplayResizeEvent)
 		}
 
+	case SearchFocusedEvent:
+		m.Blur()
+	case SearchBluredEvent, SearchResetedEvent:
+		m.Focus()
+
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, key.NewBinding(key.WithKeys("tab"))):
-			if m.focused() {
-				commands = append(commands, m.newChangeTabEvent)
-			}
+		case key.Matches(msg, m.keys.tab):
+			commands = append(commands, m.newChangeTabEvent)
 		}
 	}
 	var cmd tea.Cmd
@@ -97,8 +121,14 @@ func (m displayModel) Update(msg tea.Msg) (displayModel, tea.Cmd) {
 	return m, tea.Batch(commands...)
 }
 
-func (m displayModel) focused() bool {
-	return m.table.table.Focused
+func (m *displayModel) Blur() {
+	m.keys.tab.SetEnabled(false)
+	m.focused = false
+}
+
+func (m *displayModel) Focus() {
+	m.keys.tab.SetEnabled(true)
+	m.focused = true
 }
 
 func (m displayModel) View() string {

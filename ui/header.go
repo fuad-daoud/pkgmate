@@ -10,6 +10,7 @@ type HeaderResizeEvent struct {
 	width  int
 }
 
+
 type headerModel struct {
 	mode      AppMode
 	version   string
