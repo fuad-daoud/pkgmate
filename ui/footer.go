@@ -101,6 +101,10 @@ func (m footerModel) Update(msg tea.Msg) (footerModel, tea.Cmd) {
 				m.count = msg.summary.count
 			}
 		}
+	case ChangeTabEvent:
+		if m.previousTerm != "" {
+			return m, m.newSearchTermEvent
+		}
 
 	case tea.KeyMsg:
 		switch {
@@ -117,6 +121,7 @@ func (m footerModel) Update(msg tea.Msg) (footerModel, tea.Cmd) {
 			m.search.Blur()
 			m.search.Reset()
 			m.search.SetValue("")
+			m.previousTerm = ""
 
 			m.keys.reset.SetEnabled(false)
 			m.keys.submit.SetEnabled(false)
