@@ -104,7 +104,7 @@ func (m footerModel) Update(msg tea.Msg) (footerModel, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, key.NewBinding(key.WithKeys("/", "ctrl+f"))):
+		case key.Matches(msg, m.keys.search):
 			m.search.Focus()
 
 			m.keys.reset.SetEnabled(true)
@@ -113,7 +113,7 @@ func (m footerModel) Update(msg tea.Msg) (footerModel, tea.Cmd) {
 
 			return m, tea.Batch(m.focusSearch, textinput.Blink)
 
-		case key.Matches(msg, key.NewBinding(key.WithKeys("esc"))):
+		case key.Matches(msg, m.keys.reset):
 			m.search.Blur()
 			m.search.Reset()
 			m.search.SetValue("")
@@ -124,10 +124,13 @@ func (m footerModel) Update(msg tea.Msg) (footerModel, tea.Cmd) {
 
 			return m, m.resetSearch
 
-		case key.Matches(msg, key.NewBinding(key.WithKeys("enter"))):
+		case key.Matches(msg, m.keys.submit):
+			m.search.Blur()
+
 			m.keys.reset.SetEnabled(true)
 			m.keys.submit.SetEnabled(false)
 			m.keys.search.SetEnabled(true)
+			return m, m.blurSearch
 		default:
 			if m.search.Focused() && !slices.Contains(msg.Runes, '?') {
 				var cmd tea.Cmd
