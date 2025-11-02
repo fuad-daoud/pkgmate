@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"log/slog"
+	"pkgmate/backend"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -19,7 +22,8 @@ type DisplayResizeEvent struct {
 type ChangeTabEvent struct{}
 
 type displayKeyMap struct {
-	tab key.Binding
+	tab    key.Binding
+	update key.Binding
 }
 
 func (k displayKeyMap) ShortHelp() []key.Binding {
@@ -27,7 +31,7 @@ func (k displayKeyMap) ShortHelp() []key.Binding {
 }
 
 func (k displayKeyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{{k.tab}}
+	return [][]key.Binding{{k.tab, k.update}}
 }
 
 type displayModel struct {
@@ -60,6 +64,8 @@ func newDisplay() displayModel {
 
 	keys := displayKeyMap{
 		tab: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "shift through tabs")),
+
+		update: key.NewBinding(key.WithKeys("u"), key.WithHelp("u", "run updates (root)")),
 	}
 	m := displayModel{
 		keys:         &keys,
@@ -106,14 +112,27 @@ func (m displayModel) Update(msg tea.Msg) (displayModel, tea.Cmd) {
 
 	case SearchFocusedEvent:
 		m.Blur()
+		m.keys.update.SetEnabled(false)
 	case SearchBluredEvent, SearchResetedEvent:
 		m.Focus()
+		m.keys.update.SetEnabled(true)
 
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.tab):
 			commands = append(commands, m.newChangeTabEvent)
+
+		case key.Matches(msg, m.keys.update):
+			m.keys.update.SetEnabled(false)
+			commands = append(commands, update)
+			commands = append(commands, func() tea.Msg { return Updating })
 		}
+	case UpdateStatus:
+		switch msg {
+		case Updated, ErrUpdating:
+			m.keys.update.SetEnabled(true)
+		}
+
 	}
 	var cmd tea.Cmd
 	m.table, cmd = m.table.Update(msg)
@@ -133,4 +152,13 @@ func (m *displayModel) Focus() {
 
 func (m displayModel) View() string {
 	return m.table.View()
+}
+
+func update() tea.Msg {
+	err := backend.Update()
+	if err != nil {
+		slog.Error("Failed updating database")
+		return ErrUpdating
+	}
+	return Updated
 }

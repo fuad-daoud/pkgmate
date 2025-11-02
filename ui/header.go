@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -10,13 +11,23 @@ type HeaderResizeEvent struct {
 	width  int
 }
 
+type UpdateStatus int
+
+const (
+	Updating UpdateStatus = iota
+	IDLE
+	ErrUpdating
+	Updated
+)
 
 type headerModel struct {
-	mode      AppMode
-	version   string
-	width     int
-	tabs      []string
-	activeTab int
+	mode         AppMode
+	version      string
+	width        int
+	tabs         []string
+	activeTab    int
+	updateStatus UpdateStatus
+	spin         spinner.Model
 }
 
 func (m headerModel) newHeaderResizeEvent() tea.Msg {
@@ -30,7 +41,9 @@ func (m headerModel) newHeaderResizeEvent() tea.Msg {
 var Version = "dev"
 
 func newHeader(mode AppMode) headerModel {
-	return headerModel{mode: mode, version: "Pkgmate " + Version, tabs: []string{"Direct Packages", "Dependency Packages", "All Packages"}}
+
+	spin := spinner.New(spinner.WithSpinner(spinner.MiniDot))
+	return headerModel{spin: spin, updateStatus: IDLE, mode: mode, version: "Pkgmate " + Version, tabs: []string{"Direct Packages", "Dependency Packages", "All Packages"}}
 }
 
 func (m headerModel) Update(msg tea.Msg) (headerModel, tea.Cmd) {
@@ -39,6 +52,18 @@ func (m headerModel) Update(msg tea.Msg) (headerModel, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width - 2
 		cmd = m.newHeaderResizeEvent
+
+	case UpdateStatus:
+		switch msg {
+		case Updating:
+			m.updateStatus = Updating
+			cmd = m.spin.Tick
+		case Updated, ErrUpdating:
+			m.updateStatus = msg
+		}
+
+	case spinner.TickMsg:
+		m.spin, cmd = m.spin.Update(msg)
 	case ChangeTabEvent:
 		m.activeTab += 1
 		m.activeTab %= len(m.tabs)
@@ -53,7 +78,7 @@ func (m headerModel) View() string {
 		if i == m.activeTab {
 			tab := topLeftTab.Bold(true).
 				BorderStyle(lipgloss.ThickBorder()).
-				BorderForeground(lipgloss.Color("#4355ff")).
+				BorderForeground(selectedColor).
 				Render(v)
 			tabs = append(tabs, tab)
 			continue
@@ -63,21 +88,32 @@ func (m headerModel) View() string {
 
 	}
 	var modeIndicator string
-	modeTab := topRightTab.PaddingRight(1).PaddingLeft(1).Bold(true).Italic(true)
+	modeTab := topRightTab.Bold(true).Italic(true).BorderStyle(lipgloss.ThickBorder())
 	if m.mode == ModePrivileged {
-		modeStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#AA000B")).
-			Bold(true)
-		modeIndicator = modeTab.Render(modeStyle.Render("⚠️ PRIVILEGED"))
+		modeTab = modeTab.BorderForeground(dangerColor)
+		modeIndicator = modeTab.Render("⚠️ PRIVILEGED")
 	} else {
-		modeStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFB86C")).
-			Bold(true)
-		modeIndicator = modeTab.Render(modeStyle.Render("◆ Normal"))
+		modeTab = modeTab.BorderForeground(loadingColor)
+		modeIndicator = modeTab.Render("◆ Normal")
+	}
+	var updateIndicator string
+	updateIndicatorTab := topRightTab.
+		BorderStyle(lipgloss.ThickBorder())
+
+	switch m.updateStatus {
+	case Updating:
+		updateIndicator = updateIndicatorTab.BorderForeground(loadingColor).
+			Render(m.spin.View() + " Updating")
+	case Updated:
+		updateIndicator = updateIndicatorTab.BorderForeground(allGoodColor).
+			Render("✅ Updated")
+	case ErrUpdating:
+		updateIndicator = updateIndicatorTab.BorderForeground(dangerColor).
+			Render("❌ Failed updating")
 	}
 
 	leftSection := lipgloss.JoinHorizontal(lipgloss.Bottom, tabs...)
-	rightSection := lipgloss.JoinHorizontal(lipgloss.Bottom, modeIndicator, version)
+	rightSection := lipgloss.JoinHorizontal(lipgloss.Bottom, updateIndicator, modeIndicator, version)
 	spacer := spaceStyle.Width(m.width - lipgloss.Width(leftSection) - lipgloss.Width(rightSection)).Render()
 	return lipgloss.JoinHorizontal(lipgloss.Center, leftSection, spacer, rightSection)
 }
