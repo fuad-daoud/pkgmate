@@ -90,16 +90,13 @@ func (m footerModel) Update(msg tea.Msg) (footerModel, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width - 2
 		commands = append(commands, m.newFooterResizeEvent)
-	case TableEvent:
-		switch msg.event {
-		case CursorChanged:
-			if m.cursor != msg.cursor {
-				m.cursor = msg.cursor
-			}
-		case NewSummary:
-			if m.count != msg.summary.count {
-				m.count = msg.summary.count
-			}
+	case CursorChangedEvent:
+		if m.cursor != msg.cursor {
+			m.cursor = msg.cursor
+		}
+	case TableSummaryEvent:
+		if m.count != msg.count {
+			m.count = msg.count
 		}
 	case ChangeTabEvent:
 		if m.previousTerm != "" {

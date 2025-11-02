@@ -2,8 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"log/slog"
-	"reflect"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -22,7 +20,6 @@ type mainKeymap struct {
 	quit  key.Binding
 	debug key.Binding
 }
-
 
 func (k mainKeymap) ShortHelp() []key.Binding {
 	return []key.Binding{k.quit}
@@ -72,7 +69,7 @@ func InitialModel(isPrivileged bool) model {
 	m.help = NewHelpModel()
 
 	m.help = m.help.addKeys(m.keys)
-	m.help = m.help.addKeys(m.display.table.table.keys)
+	m.help = m.help.addKeys(m.display.table.table().keys)
 	m.help = m.help.addKeys(m.display.keys)
 	m.help = m.help.addKeys(m.footer.keys)
 
@@ -86,7 +83,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	slog.Info("New event", "type", reflect.TypeOf(msg))
+	// slog.Info("New event", "type", reflect.TypeOf(msg))
 	commands := make([]tea.Cmd, 0)
 	switch msg := msg.(type) {
 
@@ -153,5 +150,6 @@ func (m model) View() string {
 	content := lipgloss.JoinVertical(lipgloss.Bottom, m.header.View(), m.display.View(), m.footer.View())
 	content = frameStyle.Render(content)
 	content = lipgloss.JoinVertical(lipgloss.Top, content, m.help.View())
+	content = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Top, content)
 	return content
 }

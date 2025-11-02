@@ -78,6 +78,7 @@ func (m *customTable) Blur() {
 	m.keys.first.SetEnabled(false)
 	m.keys.last.SetEnabled(false)
 }
+
 func (m *customTable) Focus() {
 	m.focused = true
 	m.keys.up.SetEnabled(true)
@@ -87,6 +88,7 @@ func (m *customTable) Focus() {
 	m.keys.first.SetEnabled(true)
 	m.keys.last.SetEnabled(true)
 }
+
 func (m customTable) Focused() bool {
 	return m.focused
 }
@@ -130,23 +132,23 @@ func (m *customTable) Reset() {
 	m.cursor = 0
 	m.Focus()
 	m.Rows = m.OriginalRows
-
 }
-func (t *customTable) adjustOffset() {
-	visibleRows := t.Height - 1 // -1 for header
+
+func (m *customTable) adjustOffset() {
+	visibleRows := m.Height - 1 // -1 for header
 	if visibleRows <= 0 {
 		return
 	}
 
-	if t.cursor < t.offset {
-		t.offset = t.cursor
-	} else if t.cursor >= t.offset+visibleRows {
-		t.offset = t.cursor - visibleRows + 1
+	if m.cursor < m.offset {
+		m.offset = m.cursor
+	} else if m.cursor >= m.offset+visibleRows {
+		m.offset = m.cursor - visibleRows + 1
 	}
 
-	maxOffset := max(0, len(t.Rows)-visibleRows)
-	if t.offset > maxOffset {
-		t.offset = maxOffset
+	maxOffset := max(0, len(m.Rows)-visibleRows)
+	if m.offset > maxOffset {
+		m.offset = maxOffset
 	}
 }
 
@@ -214,16 +216,14 @@ func (m *customTable) View() string {
 	return b.String()
 }
 
-func (m *customTable) updateRows(rows [][]string) {
-	m.OriginalRows = rows
+func (m *customTable) addRow(row []string) {
+	m.OriginalRows = append(m.OriginalRows, row)
 	m.Rows = m.OriginalRows
 	m.NewRows = make([][]string, len(m.OriginalRows))
-	m.cursor = 0
 	m.adjustOffset()
 }
 
 func (m *customTable) filterColumn(column, term string) {
-
 	index := 0
 	columnIndex := 0
 	for m.Columns[columnIndex] != column {

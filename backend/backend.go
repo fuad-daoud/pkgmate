@@ -5,12 +5,14 @@ import (
 	"time"
 )
 
-
 type Package struct {
-	Name    string
-	Version string
-	Size    int64
-	Date    time.Time
+	Name       string
+	Version    string
+	NewVersion string
+	Size       int64
+	DB         string
+	Date       time.Time
+	IsDirect   bool
 }
 
 func (p Package) FormatSize() string {
@@ -24,4 +26,10 @@ func (p Package) FormatSize() string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %ciB", float64(p.Size)/float64(div), "KMGTPE"[exp])
+}
+func (p Package) FormatVersion() string {
+	if p.NewVersion != "" {
+		return fmt.Sprintf("%s->%s", p.Version, p.NewVersion)
+	}
+	return p.Version
 }

@@ -3,122 +3,127 @@ package ui
 import (
 	"log/slog"
 	"os"
+
 	"pkgmate/backend"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type TableEvent struct {
-	cursor  int
-	event   TableEvents
-	summary TableSummary
-}
-type TableSummary struct {
+type TableSummaryEvent struct {
 	count int
 }
 
-type TableEvents int
-
-const (
-	CursorChanged TableEvents = iota
-	NewSummary
-)
+type FetchDataEvent struct{}
 
 type tableModel struct {
-	table         customTable
-	rows          []table.Row
-	newRows       []table.Row
-	lastCursor    int
-	event         TableEvent
-	fetchers      []fetcher
-	activeFetcher int
+	tables      []customTable
+	lastCursor  int
+	activeTable int
+	pkgStream   chan []backend.Package
 }
 
-type fetcher func() ([]backend.Package, error)
+func (m *tableModel) table() *customTable {
+	return &m.tables[m.activeTable]
+}
 
 func (m tableModel) newSummaryEvent() tea.Msg {
-	return TableEvent{
-		event: NewSummary,
-		summary: TableSummary{
-			count: len(m.table.Rows),
-		},
+	return TableSummaryEvent{
+		count: len(m.table().Rows),
 	}
 }
+
+type CursorChangedEvent struct {
+	cursor int
+}
+
 func (m tableModel) newCursorChangedEvent() tea.Msg {
-	return TableEvent{event: CursorChanged, cursor: m.table.cursor + 1}
+	return CursorChangedEvent{cursor: m.table().cursor + 1}
 }
 
 func newTable() tableModel {
-	return tableModel{table: *newCustomTable(), fetchers: []fetcher{backend.LoadDirectPackages, backend.LoadDepedencyPackages, backend.LoadPackages}}
+	return tableModel{tables: []customTable{*newCustomTable(), *newCustomTable(), *newCustomTable()}}
+}
+
+type PackageStreamMsg struct {
+	done bool
+	pkgs []backend.Package
+}
+
+func (m tableModel) listen() tea.Msg {
+	data, ok := <-m.pkgStream
+	if !ok {
+		slog.Info("channel is closed")
+		return PackageStreamMsg{done: true}
+	}
+	return PackageStreamMsg{pkgs: data}
 }
 
 func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 	var commands []tea.Cmd
 	switch msg := msg.(type) {
 	case ProgramInitEvent:
-		pkgs, err := m.fetchers[m.activeFetcher]()
-		if err != nil {
-			slog.Error("error using fetcher", "activeFetcher", m.activeFetcher)
-			os.Exit(1)
-		}
-
-		rows := [][]string{}
-		for _, pkg := range pkgs {
-			row := table.Row{pkg.Name, pkg.Version, pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
-			rows = append(rows, row)
-		}
-		m.table.updateRows(rows)
-		commands = append(commands, m.newSummaryEvent, m.newCursorChangedEvent)
-
-	case DisplayResizeEvent:
-		slog.Info("got window resize message", "msg", msg)
-		m.table.Height = msg.height
-		m.table.Width = msg.width - 2
-
 		columns := []string{
 			"Name",
 			"Version",
 			"Size",
 			"Installed",
 		}
+		for i := range m.tables {
+			m.tables[i].Columns = columns
+		}
+		pkgChan, err := backend.LoadPackages()
+		if err != nil {
+			slog.Error("could not load packages", "err", err)
+			os.Exit(1)
+		}
+		m.pkgStream = pkgChan
+		commands = append(commands, m.listen)
 
-		m.table.Columns = columns
+	case DisplayResizeEvent:
+		slog.Info("got display resize message", "msg", msg)
+		for i := range m.tables {
+			m.tables[i].Height = msg.height
+			m.tables[i].Width = msg.width - 2
+		}
+
 	case SearchFocusedEvent:
-		m.table.Blur()
+		m.table().Blur()
 	case SearchBluredEvent:
-		m.table.Focus()
+		m.table().Focus()
 	case SearchResetedEvent:
-		m.table.Reset()
+		m.table().Reset()
 		commands = append(commands, m.newSummaryEvent)
 
 	case NewSearchTermEvent:
-		m.table.filterColumn("Name", msg.term)
+		m.table().filterColumn("Name", msg.term)
 		commands = append(commands, m.newSummaryEvent)
+	case PackageStreamMsg:
+		pkgs := msg.pkgs
+		for _, pkg := range pkgs {
+			row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
+			if pkg.IsDirect {
+				m.tables[0].addRow(row)
+			} else {
+				m.tables[1].addRow(row)
+			}
+			m.tables[2].addRow(row)
+		}
+		commands = append(commands, m.newSummaryEvent, m.newCursorChangedEvent)
+		if !msg.done {
+			commands = append(commands, m.listen)
+		}
 
 	case ChangeTabEvent:
-		m.activeFetcher += 1
-		m.activeFetcher %= len(m.fetchers)
-
-		pkgs, err := m.fetchers[m.activeFetcher]()
-		if err != nil {
-			slog.Error("error using fetcher", "activeFetcher", m.activeFetcher)
-			os.Exit(1)
-		}
-
-		rows := [][]string{}
-		for _, pkg := range pkgs {
-			row := table.Row{pkg.Name, pkg.Version, pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
-			rows = append(rows, row)
-		}
-		m.table.updateRows(rows)
+		m.activeTable += 1
+		m.activeTable %= len(m.tables)
 		commands = append(commands, m.newSummaryEvent, m.newCursorChangedEvent)
 	}
 	var newCmd tea.Cmd
 
-	m.table, newCmd = m.table.Update(msg)
-	if m.lastCursor != m.table.cursor {
-		m.lastCursor = m.table.cursor
+	m.tables[m.activeTable], newCmd = m.table().Update(msg)
+	if m.lastCursor != m.table().cursor {
+		m.lastCursor = m.table().cursor
 		commands = append(commands, m.newCursorChangedEvent)
 	}
 	commands = append(commands, newCmd)
@@ -126,5 +131,5 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 }
 
 func (m tableModel) View() string {
-	return m.table.View()
+	return m.table().View()
 }
