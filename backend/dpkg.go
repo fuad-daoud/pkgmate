@@ -5,212 +5,107 @@ package backend
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
-func LoadPackages() ([]Package, error) {
+func LoadPackages() (chan []Package, error) {
+	start := time.Now()
+
 	data, err := os.ReadFile("/var/lib/dpkg/status")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read dpkg status: %w", err)
 	}
 
-	var packages []Package
-	paragraphs := strings.SplitSeq(string(data), "\n\n")
-
-	for para := range paragraphs {
-		if para == "" {
-			continue
-		}
-
-		// Only include installed packages
-		if !strings.Contains(para, "Status: install ok installed") {
-			continue
-		}
-
-		var pkg Package
-		lines := strings.SplitSeq(para, "\n")
-
-		for line := range lines {
-			// Handle continuation lines (start with space)
-			if strings.HasPrefix(line, " ") {
-				continue
-			}
-
-			parts := strings.SplitN(line, ": ", 2)
-			if len(parts) != 2 {
-				continue
-			}
-
-			key := parts[0]
-			value := parts[1]
-
-			switch key {
-			case "Package":
-				pkg.Name = value
-			case "Version":
-				pkg.Version = value
-			case "Installed-Size":
-				if size, err := strconv.ParseInt(value, 10, 64); err == nil {
-					pkg.Size = size * 1024 // Convert KB to bytes
-				}
-			}
-		}
-
-		// Get install date from .list file
-		if pkg.Name != "" {
-			listFile := fmt.Sprintf("/var/lib/dpkg/info/%s.list", pkg.Name)
-			if info, err := os.Stat(listFile); err == nil {
-				pkg.Date = info.ModTime()
-			}
-
-			packages = append(packages, pkg)
-		}
-	}
-
-	return packages, nil
-}
-
-func LoadDirectPackages() ([]Package, error) {
 	autoInstalled := getAutoInstalledPackages()
 
-	data, err := os.ReadFile("/var/lib/dpkg/status")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read dpkg status: %w", err)
-	}
+	pkgsChan := make(chan []Package, 1)
 
-	var packages []Package
-	paragraphs := strings.SplitSeq(string(data), "\n\n")
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		packages := make([]Package, 0)
+		paragraphs := strings.SplitSeq(string(data), "\n\n")
 
-	for para := range paragraphs {
-		if para == "" {
-			continue
-		}
-
-		if !strings.Contains(para, "Status: install ok installed") {
-			continue
-		}
-
-		var pkg Package
-		lines := strings.SplitSeq(para, "\n")
-
-		for line := range lines {
-			if strings.HasPrefix(line, " ") {
+		for para := range paragraphs {
+			if para == "" {
 				continue
 			}
 
-			parts := strings.SplitN(line, ": ", 2)
-			if len(parts) != 2 {
+			if !strings.Contains(para, "Status: install ok installed") {
 				continue
 			}
 
-			key := parts[0]
-			value := parts[1]
+			var pkg Package
+			lines := strings.SplitSeq(para, "\n")
 
-			switch key {
-			case "Package":
-				pkg.Name = value
-			case "Version":
-				pkg.Version = value
-			case "Installed-Size":
-				if size, err := strconv.ParseInt(value, 10, 64); err == nil {
-					pkg.Size = size * 1024
+			for line := range lines {
+				if strings.HasPrefix(line, " ") {
+					continue
+				}
+
+				parts := strings.SplitN(line, ": ", 2)
+				if len(parts) != 2 {
+					continue
+				}
+
+				key := parts[0]
+				value := parts[1]
+
+				switch key {
+				case "Package":
+					pkg.Name = value
+				case "Version":
+					pkg.Version = value
+				case "Installed-Size":
+					if size, err := strconv.ParseInt(value, 10, 64); err == nil {
+						pkg.Size = size * 1024
+					}
 				}
 			}
-		}
 
-		if pkg.Name != "" {
-			// Only include manually installed packages
-			if _, isAuto := autoInstalled[pkg.Name]; isAuto {
-				continue
-			}
-
-			listFile := fmt.Sprintf("/var/lib/dpkg/info/%s.list", pkg.Name)
-			if info, err := os.Stat(listFile); err == nil {
-				pkg.Date = info.ModTime()
-			}
-
-			packages = append(packages, pkg)
-		}
-	}
-
-	return packages, nil
-}
-
-func LoadDepedencyPackages() ([]Package, error) {
-	autoInstalled := getAutoInstalledPackages()
-
-	data, err := os.ReadFile("/var/lib/dpkg/status")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read dpkg status: %w", err)
-	}
-
-	var packages []Package
-	paragraphs := strings.SplitSeq(string(data), "\n\n")
-
-	for para := range paragraphs {
-		if para == "" {
-			continue
-		}
-
-		if !strings.Contains(para, "Status: install ok installed") {
-			continue
-		}
-
-		var pkg Package
-		lines := strings.SplitSeq(para, "\n")
-
-		for line := range lines {
-			if strings.HasPrefix(line, " ") {
-				continue
-			}
-
-			parts := strings.SplitN(line, ": ", 2)
-			if len(parts) != 2 {
-				continue
-			}
-
-			key := parts[0]
-			value := parts[1]
-
-			switch key {
-			case "Package":
-				pkg.Name = value
-			case "Version":
-				pkg.Version = value
-			case "Installed-Size":
-				if size, err := strconv.ParseInt(value, 10, 64); err == nil {
-					pkg.Size = size * 1024
+			if pkg.Name != "" {
+				listFile := fmt.Sprintf("/var/lib/dpkg/info/%s.list", pkg.Name)
+				if info, err := os.Stat(listFile); err == nil {
+					pkg.Date = info.ModTime()
 				}
+
+				_, isAuto := autoInstalled[pkg.Name]
+				pkg.IsDirect = !isAuto
+				pkg.DB = "dpkg"
+
+				packages = append(packages, pkg)
 			}
 		}
 
-		if pkg.Name != "" {
-			// Only include auto-installed packages
-			if _, isAuto := autoInstalled[pkg.Name]; !isAuto {
-				continue
-			}
+		wg.Go(func() { pkgsChan <- packages })
 
-			listFile := fmt.Sprintf("/var/lib/dpkg/info/%s.list", pkg.Name)
-			if info, err := os.Stat(listFile); err == nil {
-				pkg.Date = info.ModTime()
+		upgradable := getUpgradableVersions()
+		for i := range packages {
+			if newVer, ok := upgradable[packages[i].Name]; ok && newVer != packages[i].Version {
+				packages[i].NewVersion = newVer
 			}
-
-			packages = append(packages, pkg)
 		}
-	}
 
-	return packages, nil
+		wg.Go(func() { pkgsChan <- packages })
+	})
+
+	go func() {
+		wg.Wait()
+		close(pkgsChan)
+		_ = time.Since(start)
+	}()
+
+	return pkgsChan, nil
 }
 
-// getAutoInstalledPackages reads the APT extended_states file to determine
-// which packages were automatically installed as dependencies
 func getAutoInstalledPackages() map[string]bool {
 	autoInstalled := make(map[string]bool)
 
 	data, err := os.ReadFile("/var/lib/apt/extended_states")
 	if err != nil {
-		// If file doesn't exist, assume no packages are auto-installed
 		return autoInstalled
 	}
 
@@ -225,7 +120,7 @@ func getAutoInstalledPackages() map[string]bool {
 
 		lines := strings.SplitSeq(para, "\n")
 		for line := range lines {
-			if after, ok :=strings.CutPrefix(line, "Package: "); ok  {
+			if after, ok := strings.CutPrefix(line, "Package: "); ok {
 				packageName = after
 			} else if strings.HasPrefix(line, "Auto-Installed: 1") {
 				isAuto = true
@@ -238,4 +133,43 @@ func getAutoInstalledPackages() map[string]bool {
 	}
 
 	return autoInstalled
+}
+
+func getUpgradableVersions() map[string]string {
+	available := make(map[string]string)
+
+	cmd := exec.Command("apt", "list", "--upgradable")
+	output, err := cmd.Output()
+	if err != nil {
+		return available
+	}
+
+	for line := range strings.SplitSeq(string(output), "\n") {
+		if line == "" || strings.HasPrefix(line, "Listing") {
+			continue
+		}
+
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+
+		name := strings.Split(fields[0], "/")[0]
+		version := fields[1]
+		available[name] = version
+	}
+
+	return available
+}
+
+func Update() error {
+	if _, err := exec.LookPath("apt-get"); err == nil {
+		return exec.Command("apt-get", "update").Run()
+	}
+
+	if _, err := exec.LookPath("apt"); err == nil {
+		return exec.Command("apt", "update").Run()
+	}
+
+	return fmt.Errorf("neither apt-get nor apt found")
 }
