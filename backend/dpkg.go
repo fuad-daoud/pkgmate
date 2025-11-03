@@ -26,6 +26,7 @@ func LoadPackages() (chan []Package, error) {
 
 	var wg sync.WaitGroup
 	wg.Go(func() {
+		heldPkgs := getHeldPackages()
 		packages := make([]Package, 0)
 		paragraphs := strings.SplitSeq(string(data), "\n\n")
 
@@ -34,7 +35,7 @@ func LoadPackages() (chan []Package, error) {
 				continue
 			}
 
-			if !strings.Contains(para, "Status: install ok installed") {
+			if !strings.Contains(para, "Status: install ok installed") && !strings.Contains(para, "Status: hold ok installed") {
 				continue
 			}
 
@@ -75,9 +76,11 @@ func LoadPackages() (chan []Package, error) {
 				_, isAuto := autoInstalled[pkg.Name]
 				pkg.IsDirect = !isAuto
 				pkg.DB = "dpkg"
+				pkg.IsFrozen = heldPkgs[pkg.Name]
 
 				packages = append(packages, pkg)
 			}
+
 		}
 
 		wg.Go(func() { pkgsChan <- packages })
@@ -160,6 +163,24 @@ func getUpgradableVersions() map[string]string {
 	}
 
 	return available
+}
+func getHeldPackages() map[string]bool {
+	held := make(map[string]bool)
+
+	cmd := exec.Command("dpkg", "--get-selections")
+	output, err := cmd.Output()
+	if err != nil {
+		return held
+	}
+
+	for line := range strings.SplitSeq(string(output), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 && fields[1] == "hold" {
+			held[fields[0]] = true
+		}
+	}
+
+	return held
 }
 
 func Update() error {
