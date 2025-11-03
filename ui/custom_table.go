@@ -32,6 +32,7 @@ func (k customTableKeyMap) FullHelp() [][]key.Binding {
 type customTable struct {
 	keys          *customTableKeyMap
 	Columns       []string
+	mp            map[string]int
 	OriginalRows  [][]string
 	Rows          [][]string
 	NewRows       [][]string
@@ -57,6 +58,7 @@ func newCustomTable() *customTable {
 	}
 	return &customTable{
 		keys:          &keys,
+		mp:            make(map[string]int),
 		Columns:       []string{},
 		Rows:          [][]string{},
 		NewRows:       [][]string{},
@@ -217,7 +219,12 @@ func (m *customTable) View() string {
 }
 
 func (m *customTable) addRow(row []string) {
+	if index, ok := m.mp[row[0]]; ok {
+		m.OriginalRows[index] = row
+		return
+	}
 	m.OriginalRows = append(m.OriginalRows, row)
+	m.mp[row[0]] = len(m.OriginalRows) - 1
 	m.Rows = m.OriginalRows
 	m.NewRows = make([][]string, len(m.OriginalRows))
 	m.adjustOffset()
