@@ -48,6 +48,7 @@ func LoadPackages() (chan []Package, error) {
 		results := make(chan Package, len(entries)*2) // *2 to account for casks
 		var loadWg sync.WaitGroup
 		semaphore := make(chan struct{}, 8)
+		pinnedFormulae := getPinnedFormulae()
 
 		for _, entry := range entries {
 			if !entry.IsDir() {
@@ -107,6 +108,7 @@ func LoadPackages() (chan []Package, error) {
 						Size:     size,
 						Date:     installDate,
 						IsDirect: isDirect,
+						IsFrozen: pinnedFormulae[pkgName],
 						DB:       "Homebrew",
 					}
 
@@ -137,6 +139,7 @@ func LoadPackages() (chan []Package, error) {
 						Size:     size,
 						Date:     installedDate,
 						IsDirect: true, // Casks are always direct installs
+						IsFrozen: false,
 						DB:       "Cask",
 					}
 				})
@@ -320,12 +323,12 @@ func getOutdatedVersions() map[string]string {
 
 	var result struct {
 		Formulae []struct {
-			Name              string   `json:"name"`
-			AvailableVersion  string   `json:"current_version"`
+			Name             string `json:"name"`
+			AvailableVersion string `json:"current_version"`
 		} `json:"formulae"`
 		Casks []struct {
-			Name              string   `json:"name"`
-			AvailableVersion  string   `json:"current_version"`
+			Name             string `json:"name"`
+			AvailableVersion string `json:"current_version"`
 		} `json:"casks"`
 	}
 
@@ -343,6 +346,33 @@ func getOutdatedVersions() map[string]string {
 	}
 
 	return outdated
+}
+func getPinnedFormulae() map[string]bool {
+	pinned := make(map[string]bool)
+
+	cmd := exec.Command("brew", "--prefix")
+	output, err := cmd.Output()
+	if err != nil {
+		slog.Warn("could not get brew prefix", "err", err)
+		return pinned
+	}
+
+	prefix := strings.TrimSpace(string(output))
+	pinnedDir := filepath.Join(prefix, "var", "homebrew", "pinned")
+
+	entries, err := os.ReadDir(pinnedDir)
+	if err != nil {
+		slog.Warn("could not read pinned dir", "err", err)
+		return pinned
+	}
+
+	for _, entry := range entries {
+		if info, err := entry.Info(); err == nil && info.Mode().Type() == os.ModeSymlink {
+			pinned[entry.Name()] = true
+		}
+	}
+
+	return pinned
 }
 
 func Update() error {
