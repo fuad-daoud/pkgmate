@@ -13,6 +13,7 @@ type Package struct {
 	DB         string
 	Date       time.Time
 	IsDirect   bool
+	IsFrozen   bool
 }
 
 func (p Package) FormatSize() string {

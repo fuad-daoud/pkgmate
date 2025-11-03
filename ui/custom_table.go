@@ -34,6 +34,7 @@ type customTable struct {
 	Columns       []string
 	mp            map[string]int
 	OriginalRows  [][]string
+	StyledRows    map[string]lipgloss.Style
 	Rows          [][]string
 	NewRows       [][]string
 	cursor        int
@@ -41,7 +42,6 @@ type customTable struct {
 	Height        int
 	Width         int
 	focused       bool
-	selectedRow   int
 	headerStyle   lipgloss.Style
 	selectedStyle lipgloss.Style
 	cellStyle     lipgloss.Style
@@ -68,6 +68,7 @@ func newCustomTable() *customTable {
 		headerStyle:   lipgloss.NewStyle().Bold(true).Padding(0, 1).BorderStyle(lipgloss.NormalBorder()).BorderBottom(true),
 		selectedStyle: lipgloss.NewStyle().Bold(false).Foreground(lipgloss.Color("#FFFFFF")).Background(lipgloss.Color("#4355ff")).Padding(0, 1),
 		cellStyle:     lipgloss.NewStyle().Padding(0, 1),
+		StyledRows:    map[string]lipgloss.Style{},
 	}
 }
 
@@ -154,20 +155,6 @@ func (m *customTable) adjustOffset() {
 	}
 }
 
-// func (t *customTable) recalculateColumnWidths() {
-// if len(t.Columns) == 0 || t.Width == 0 {
-// 	return
-// }
-
-// totalBorder := len(t.Columns) * 2 // padding on each side
-// availableWidth := t.Width - totalBorder
-
-// equalWidth := availableWidth / len(t.Columns)
-// for i := range t.Columns {
-// t.Columns[i].width = equalWidth
-// }
-// }
-
 func (m *customTable) View() string {
 	if len(m.Columns) == 0 {
 		return ""
@@ -204,7 +191,12 @@ func (m *customTable) View() string {
 			rowCells[j] = style.Width(m.Width / len(m.Columns)).Render(cellContent)
 		}
 
-		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, rowCells...))
+		curruentRow := lipgloss.JoinHorizontal(lipgloss.Top, rowCells...)
+		rowStyle, ok := m.StyledRows[row[0]]
+		if !ok {
+			rowStyle = lipgloss.NewStyle()
+		}
+		b.WriteString(rowStyle.Render(curruentRow))
 		if i < endIdx-1 {
 			b.WriteString("\n")
 		}

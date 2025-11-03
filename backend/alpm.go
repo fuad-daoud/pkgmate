@@ -4,7 +4,9 @@ package backend
 
 import (
 	"log/slog"
+	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,6 +48,11 @@ func LoadPackages() (chan []Package, error) {
 		aurPackages := make([]Package, 0)
 		aurPackagesNames := make([]string, 0)
 		packages := make([]Package, 0)
+
+		pinnedPkgs, err := getPinnedPackages(h)
+		if err != nil {
+			slog.Warn("could not get forzen packages", "err", err)
+		}
 		for _, p := range pkgs {
 			pkg := Package{
 				Name:     p.Name(),
@@ -53,6 +60,7 @@ func LoadPackages() (chan []Package, error) {
 				Size:     p.ISize(),
 				DB:       p.DB().Name(),
 				Date:     p.InstallDate(),
+				IsFrozen: pinnedPkgs[p.Name()],
 				IsDirect: p.Reason() == alpm.PkgReasonExplicit,
 			}
 
@@ -86,6 +94,37 @@ func LoadPackages() (chan []Package, error) {
 	}()
 
 	return pkgsChan, nil
+}
+func getPinnedPackages(h *alpm.Handle) (map[string]bool, error) {
+	pinned := make(map[string]bool)
+
+	ignorePkgs, err := h.IgnorePkgs()
+	if err != nil {
+		return pinned, err
+	}
+	s := ignorePkgs.Slice()
+	for _, pkg := range s {
+		pinned[pkg] = true
+	}
+	data, err := os.ReadFile("/etc/pacman.conf")
+	if err != nil {
+		return pinned, err
+	}
+
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "IgnorePkg") && strings.Contains(line, "=") {
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				pkgs := strings.Fields(strings.TrimSpace(parts[1]))
+				for _, pkg := range pkgs {
+					pinned[pkg] = true
+				}
+			}
+		}
+	}
+
+	return pinned, nil
 }
 
 func Update() error {
