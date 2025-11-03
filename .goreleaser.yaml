@@ -27,7 +27,7 @@ builds:
     main: ./main/main.go
     binary: pkgmate
     tags: [brew]
-    goos: [darwin]
+    goos: [darwin, linux]
     goarch: [amd64, arm64]
     env: [CGO_ENABLED=0]
     ldflags:
@@ -61,6 +61,8 @@ changelog:
       - "^ci:"
       - "^cicd:"
       - "^chore:"
+      - "^refactor:"
+      - "^Merge"
 
 aurs:
   - name: pkgmate-bin
