@@ -29,4 +29,11 @@ var (
 			MarginBottom(0)
 	frameStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
 	spaceStyle = lipgloss.NewStyle()
+	frozenRow  = lipgloss.NewStyle().
+			Background(lipgloss.Color("#1A1F2E")).
+			Foreground(lipgloss.Color("#7B8FD3")).
+			Italic(true)
+	updateAvailableRow = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#FFB86C"))
 )

@@ -131,10 +131,29 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 			row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
 			if pkg.IsDirect {
 				m.tables[0].addRow(row)
+				if pkg.NewVersion != "" {
+					m.tables[0].StyledRows[pkg.Name] = updateAvailableRow
+				}
+				if pkg.IsFrozen {
+					m.tables[0].StyledRows[pkg.Name] = frozenRow
+				}
 			} else {
 				m.tables[1].addRow(row)
+				if pkg.NewVersion != "" {
+					m.tables[1].StyledRows[pkg.Name] = updateAvailableRow
+				}
+
+				if pkg.IsFrozen {
+					m.tables[1].StyledRows[pkg.Name] = frozenRow
+				}
 			}
 			m.tables[2].addRow(row)
+			if pkg.NewVersion != "" {
+				m.tables[2].StyledRows[pkg.Name] = updateAvailableRow
+			}
+			if pkg.IsFrozen {
+				m.tables[2].StyledRows[pkg.Name] = frozenRow
+			}
 		}
 		commands = append(commands, m.newSummaryEvent, m.newCursorChangedEvent)
 		if !msg.done {
