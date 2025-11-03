@@ -6,6 +6,7 @@ import (
 
 	"pkgmate/backend"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -16,7 +17,26 @@ type TableSummaryEvent struct {
 
 type FetchDataEvent struct{}
 
+type tableKeys struct {
+	customTableKey *customTableKeyMap
+
+	update key.Binding
+}
+
+func (k tableKeys) ShortHelp() []key.Binding {
+	help := k.customTableKey.ShortHelp()
+	help = append(help, k.update)
+	return help
+}
+
+func (k tableKeys) FullHelp() [][]key.Binding {
+	help := k.customTableKey.FullHelp()
+	help = append(help, []key.Binding{k.update})
+	return help
+}
+
 type tableModel struct {
+	keys        tableKeys
 	tables      []customTable
 	lastCursor  int
 	activeTable int
@@ -42,7 +62,11 @@ func (m tableModel) newCursorChangedEvent() tea.Msg {
 }
 
 func newTable() tableModel {
-	return tableModel{tables: []customTable{*newCustomTable(), *newCustomTable(), *newCustomTable()}}
+	keys := tableKeys{
+		update:         key.NewBinding(key.WithKeys("u"), key.WithHelp("u", "run updates (root)")),
+		customTableKey: newCustomTable().keys,
+	}
+	return tableModel{keys: keys, tables: []customTable{*newCustomTable(), *newCustomTable(), *newCustomTable()}}
 }
 
 type PackageStreamMsg struct {
@@ -89,10 +113,13 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 
 	case SearchFocusedEvent:
 		m.table().Blur()
+		m.keys.update.SetEnabled(false)
 	case SearchBluredEvent:
 		m.table().Focus()
+		m.keys.update.SetEnabled(true)
 	case SearchResetedEvent:
 		m.table().Reset()
+		m.keys.update.SetEnabled(true)
 		commands = append(commands, m.newSummaryEvent)
 
 	case NewSearchTermEvent:
@@ -113,7 +140,27 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 		if !msg.done {
 			commands = append(commands, m.listen)
 		}
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, m.keys.update):
+			m.keys.update.SetEnabled(false)
+			commands = append(commands, update)
+			commands = append(commands, func() tea.Msg { return Updating })
+		}
 
+	case UpdateStatus:
+		switch msg {
+		case Updated, ErrUpdating:
+			m.keys.update.SetEnabled(true)
+			pkgChan, err := backend.LoadPackages()
+			if err != nil {
+				slog.Error("could not load packages", "err", err)
+				os.Exit(1)
+			}
+			m.pkgStream = pkgChan
+			commands = append(commands, m.listen)
+
+		}
 	case ChangeTabEvent:
 		m.activeTable += 1
 		m.activeTable %= len(m.tables)

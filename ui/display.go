@@ -22,8 +22,7 @@ type DisplayResizeEvent struct {
 type ChangeTabEvent struct{}
 
 type displayKeyMap struct {
-	tab    key.Binding
-	update key.Binding
+	tab key.Binding
 }
 
 func (k displayKeyMap) ShortHelp() []key.Binding {
@@ -31,14 +30,13 @@ func (k displayKeyMap) ShortHelp() []key.Binding {
 }
 
 func (k displayKeyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{{k.tab, k.update}}
+	return [][]key.Binding{{k.tab}}
 }
 
 type displayModel struct {
 	keys         *displayKeyMap
 	table        tableModel
 	selected     SelectedDisplay
-	focused      bool
 	headerHeight int
 	headerWidth  int
 	footerHeight int
@@ -64,8 +62,6 @@ func newDisplay() displayModel {
 
 	keys := displayKeyMap{
 		tab: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "shift through tabs")),
-
-		update: key.NewBinding(key.WithKeys("u"), key.WithHelp("u", "run updates (root)")),
 	}
 	m := displayModel{
 		keys:         &keys,
@@ -110,27 +106,10 @@ func (m displayModel) Update(msg tea.Msg) (displayModel, tea.Cmd) {
 			commands = append(commands, m.newDisplayResizeEvent)
 		}
 
-	case SearchFocusedEvent:
-		m.Blur()
-		m.keys.update.SetEnabled(false)
-	case SearchBluredEvent, SearchResetedEvent:
-		m.Focus()
-		m.keys.update.SetEnabled(true)
-
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.tab):
 			commands = append(commands, m.newChangeTabEvent)
-
-		case key.Matches(msg, m.keys.update):
-			m.keys.update.SetEnabled(false)
-			commands = append(commands, update)
-			commands = append(commands, func() tea.Msg { return Updating })
-		}
-	case UpdateStatus:
-		switch msg {
-		case Updated, ErrUpdating:
-			m.keys.update.SetEnabled(true)
 		}
 
 	}
@@ -138,16 +117,6 @@ func (m displayModel) Update(msg tea.Msg) (displayModel, tea.Cmd) {
 	m.table, cmd = m.table.Update(msg)
 	commands = append(commands, cmd)
 	return m, tea.Batch(commands...)
-}
-
-func (m *displayModel) Blur() {
-	m.keys.tab.SetEnabled(false)
-	m.focused = false
-}
-
-func (m *displayModel) Focus() {
-	m.keys.tab.SetEnabled(true)
-	m.focused = true
 }
 
 func (m displayModel) View() string {
