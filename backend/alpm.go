@@ -14,38 +14,35 @@ import (
 const PACKAGES_CACHE_KEY = "cache_key"
 
 func LoadPackages() (chan []Package, error) {
-	start := time.Now()
+	var wg sync.WaitGroup
+	pkgsChan := make(chan []Package, 2)
 	h, err := alpm.Initialize("/", "/var/lib/pacman/")
 	if err != nil {
 		return nil, err
 	}
-
-	if _, err := h.RegisterSyncDB("core", 0); err != nil {
-		slog.Warn("Failed to register core", "err", err)
-	}
-	if _, err := h.RegisterSyncDB("extra", 0); err != nil {
-		slog.Warn("Failed to register extra", "err", err)
-	}
-	if _, err := h.RegisterSyncDB("multilib", 0); err != nil {
-		slog.Warn("Failed to register multilib", "err", err)
-	}
-
-	syncDBs, err := h.SyncDBs()
-	if err != nil {
-		return nil, err
-	}
-
-	localDB, err := h.LocalDB()
-	if err != nil {
-		return nil, err
-	}
-	pkgs := localDB.PkgCache().Slice()
-
-	pkgsChan := make(chan []Package, 2)
-	slog.Info("time taken to load packages from cache and get syncdb", "time", time.Since(start))
-	start = time.Now()
-	var wg sync.WaitGroup
+	start := time.Now()
 	wg.Go(func() {
+
+		if _, err := h.RegisterSyncDB("core", 0); err != nil {
+			slog.Warn("Failed to register core", "err", err)
+		}
+		if _, err := h.RegisterSyncDB("extra", 0); err != nil {
+			slog.Warn("Failed to register extra", "err", err)
+		}
+		if _, err := h.RegisterSyncDB("multilib", 0); err != nil {
+			slog.Warn("Failed to register multilib", "err", err)
+		}
+
+		syncDBs, err := h.SyncDBs()
+		if err != nil {
+			return
+		}
+
+		localDB, err := h.LocalDB()
+		if err != nil {
+			return
+		}
+		pkgs := localDB.PkgCache().Slice()
 		aurPackages := make([]Package, 0)
 		aurPackagesNames := make([]string, 0)
 		packages := make([]Package, 0)
