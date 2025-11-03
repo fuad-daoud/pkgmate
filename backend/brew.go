@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,9 +25,9 @@ type installReceipt struct {
 	Time                  int64    `json:"time"`
 }
 
-type packageFilter func(receipt *installReceipt) bool
+func LoadPackages() (chan []Package, error) {
+	start := time.Now()
 
-func loadPackagesWithFilter(filter packageFilter) ([]Package, error) {
 	cellarCmd := exec.Command("brew", "--cellar")
 	cellarOutput, err := cellarCmd.Output()
 	if err != nil {
@@ -39,93 +40,90 @@ func loadPackagesWithFilter(filter packageFilter) ([]Package, error) {
 		return nil, fmt.Errorf("failed to read cellar: %w", err)
 	}
 
-	packages := make([]Package, 0, len(entries))
-	results := make(chan Package, len(entries))
 	var wg sync.WaitGroup
-	semaphore := make(chan struct{}, 8)
+	pkgsChan := make(chan []Package, 2)
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
+	wg.Go(func() {
+		packages := make([]Package, 0, len(entries))
+		results := make(chan Package, len(entries)*2) // *2 to account for casks
+		var loadWg sync.WaitGroup
+		semaphore := make(chan struct{}, 8)
 
-		wg.Add(1)
-		go func(pkgName string) {
-			defer wg.Done()
-
-			semaphore <- struct{}{}
-			defer func() { <-semaphore }()
-
-			pkgPath := filepath.Join(cellarPath, pkgName)
-
-			versions, err := os.ReadDir(pkgPath)
-			if err != nil {
-				return
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
 			}
 
-			for _, verEntry := range versions {
-				if !verEntry.IsDir() {
-					continue
-				}
-				installedVersion, err := getInstalledVersion(cellarPath, pkgName)
+			loadWg.Go(func() {
+				pkgName := entry.Name()
+
+				semaphore <- struct{}{}
+				defer func() { <-semaphore }()
+
+				pkgPath := filepath.Join(cellarPath, pkgName)
+
+				versions, err := os.ReadDir(pkgPath)
 				if err != nil {
 					return
 				}
-				if installedVersion != verEntry.Name() {
-					continue
-				}
 
-				verPath := filepath.Join(pkgPath, verEntry.Name())
-
-				receiptPath := filepath.Join(verPath, "INSTALL_RECEIPT.json")
-				receiptData, err := os.ReadFile(receiptPath)
-
-				var installDate time.Time
-				var receipt installReceipt
-				if err == nil && json.Unmarshal(receiptData, &receipt) == nil {
-					if receipt.Time > 0 {
-						installDate = time.Unix(receipt.Time, 0)
+				for _, verEntry := range versions {
+					if !verEntry.IsDir() {
+						continue
 					}
-					
-					// Apply filter if provided
-					if filter != nil && !filter(&receipt) {
+					installedVersion, err := getInstalledVersion(cellarPath, pkgName)
+					if err != nil {
 						return
 					}
+					if installedVersion != verEntry.Name() {
+						continue
+					}
+
+					verPath := filepath.Join(pkgPath, verEntry.Name())
+
+					receiptPath := filepath.Join(verPath, "INSTALL_RECEIPT.json")
+					receiptData, err := os.ReadFile(receiptPath)
+
+					var installDate time.Time
+					var receipt installReceipt
+					isDirect := true // Default to direct if no receipt
+
+					if err == nil && json.Unmarshal(receiptData, &receipt) == nil {
+						if receipt.Time > 0 {
+							installDate = time.Unix(receipt.Time, 0)
+						}
+						isDirect = receipt.InstalledOnRequest
+					}
+
+					if installDate.IsZero() {
+						installDate = time.Now()
+					}
+
+					size := calculateSize(verPath)
+
+					results <- Package{
+						Name:     pkgName,
+						Version:  verEntry.Name(),
+						Size:     size,
+						Date:     installDate,
+						IsDirect: isDirect,
+						DB:       "Homebrew",
+					}
+
+					break
 				}
+			})
+		}
 
-				if installDate.IsZero() {
-					installDate = time.Now()
-				}
-
-				size := calculateSize(verPath)
-
-				results <- Package{
-					Name:    pkgName,
-					Version: verEntry.Name(),
-					Size:    size,
-					Date:    installDate,
-				}
-
-				break
-			}
-		}(entry.Name())
-	}
-
-	// Casks are always considered direct installs
-	caskroomPath := strings.Replace(cellarPath, "/Cellar", "/Caskroom", 1)
-	if caskEntries, err := os.ReadDir(caskroomPath); err == nil {
-		// Only include casks if filter allows it (no filter or direct packages filter)
-		includeCasks := filter == nil || filter(&installReceipt{InstalledOnRequest: true})
-		
-		if includeCasks {
+		caskroomPath := strings.Replace(cellarPath, "/Cellar", "/Caskroom", 1)
+		if caskEntries, err := os.ReadDir(caskroomPath); err == nil {
 			for _, entry := range caskEntries {
 				if !entry.IsDir() {
 					continue
 				}
 
-				wg.Add(1)
-				go func(caskName string) {
-					defer wg.Done()
+				loadWg.Go(func() {
+					caskName := entry.Name()
 					semaphore <- struct{}{}
 					defer func() { <-semaphore }()
 
@@ -134,42 +132,45 @@ func loadPackagesWithFilter(filter packageFilter) ([]Package, error) {
 					installedDate, _ := getCaskMetadata(caskroomPath, caskName, version)
 
 					results <- Package{
-						Name:    caskName,
-						Version: version,
-						Size:    size,
-						Date:    installedDate,
+						Name:     caskName,
+						Version:  version,
+						Size:     size,
+						Date:     installedDate,
+						IsDirect: true, // Casks are always direct installs
+						DB:       "Cask",
 					}
-				}(entry.Name())
+				})
 			}
 		}
-	}
+
+		go func() {
+			loadWg.Wait()
+			close(results)
+		}()
+
+		for pkg := range results {
+			packages = append(packages, pkg)
+		}
+
+		wg.Go(func() { pkgsChan <- packages })
+
+		outdated := getOutdatedVersions()
+		for i := range packages {
+			if newVer, ok := outdated[packages[i].Name]; ok && newVer != packages[i].Version {
+				packages[i].NewVersion = newVer
+			}
+		}
+
+		wg.Go(func() { pkgsChan <- packages })
+	})
 
 	go func() {
 		wg.Wait()
-		close(results)
+		close(pkgsChan)
+		slog.Info("time to map all packages and check updates", "time", time.Since(start))
 	}()
 
-	for pkg := range results {
-		packages = append(packages, pkg)
-	}
-
-	return packages, nil
-}
-
-func LoadPackages() ([]Package, error) {
-	return loadPackagesWithFilter(nil)
-}
-
-func LoadDirectPackages() ([]Package, error) {
-	return loadPackagesWithFilter(func(r *installReceipt) bool {
-		return r.InstalledOnRequest
-	})
-}
-
-func LoadDepedencyPackages() ([]Package, error) {
-	return loadPackagesWithFilter(func(r *installReceipt) bool {
-		return r.InstalledAsDependency
-	})
+	return pkgsChan, nil
 }
 
 func getInstalledVersion(cellarPath, pkgName string) (string, error) {
@@ -305,4 +306,45 @@ func getCaskVersion(caskroomPath, caskName string) (string, error) {
 	}
 
 	return newestVer, nil
+}
+
+func getOutdatedVersions() map[string]string {
+	outdated := make(map[string]string)
+
+	cmd := exec.Command("brew", "outdated", "--json=v2")
+	output, err := cmd.Output()
+	if err != nil {
+		slog.Warn("Failed to get outdated packages", "err", err)
+		return outdated
+	}
+
+	var result struct {
+		Formulae []struct {
+			Name              string   `json:"name"`
+			AvailableVersion  string   `json:"current_version"`
+		} `json:"formulae"`
+		Casks []struct {
+			Name              string   `json:"name"`
+			AvailableVersion  string   `json:"current_version"`
+		} `json:"casks"`
+	}
+
+	if err := json.Unmarshal(output, &result); err != nil {
+		slog.Warn("Failed to parse outdated JSON", "err", err)
+		return outdated
+	}
+
+	for _, formula := range result.Formulae {
+		outdated[formula.Name] = formula.AvailableVersion
+	}
+
+	for _, cask := range result.Casks {
+		outdated[cask.Name] = cask.AvailableVersion
+	}
+
+	return outdated
+}
+
+func Update() error {
+	return exec.Command("brew", "update").Run()
 }

@@ -14,9 +14,9 @@ services:
     tty: true
 
   brew:
-    image: ubuntu:22.04
+    image: homebrew/brew:latest
     volumes:
-      - ./dist/pkgmate-brew_darwin_amd64_v1/:/dist:ro
+      - ./dist/pkgmate-brew_darwin_amd64_v1/pkgmate:/dist:ro
     stdin_open: true
     tty: true
     environment:
