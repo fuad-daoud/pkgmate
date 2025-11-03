@@ -12,7 +12,7 @@ type Column struct {
 	Title string
 }
 
-type tableKeyMap struct {
+type customTableKeyMap struct {
 	up       key.Binding
 	down     key.Binding
 	pageup   key.Binding
@@ -21,16 +21,16 @@ type tableKeyMap struct {
 	last     key.Binding
 }
 
-func (k tableKeyMap) ShortHelp() []key.Binding {
+func (k customTableKeyMap) ShortHelp() []key.Binding {
 	return []key.Binding{k.up, k.down}
 }
 
-func (k tableKeyMap) FullHelp() [][]key.Binding {
+func (k customTableKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{{k.up, k.down, k.pageup, k.pagedown}, {k.first, k.last}}
 }
 
 type customTable struct {
-	keys          *tableKeyMap
+	keys          *customTableKeyMap
 	Columns       []string
 	OriginalRows  [][]string
 	Rows          [][]string
@@ -47,7 +47,7 @@ type customTable struct {
 }
 
 func newCustomTable() *customTable {
-	keys := tableKeyMap{
+	keys := customTableKeyMap{
 		up:       key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "move up")),
 		down:     key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "move down")),
 		pageup:   key.NewBinding(key.WithKeys("pgup", "ctrl+u"), key.WithHelp("pageup/ctrl+u", "jump up")),

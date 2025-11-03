@@ -69,7 +69,7 @@ func InitialModel(isPrivileged bool) model {
 	m.help = NewHelpModel()
 
 	m.help = m.help.addKeys(m.keys)
-	m.help = m.help.addKeys(m.display.table.table().keys)
+	m.help = m.help.addKeys(m.display.table.keys)
 	m.help = m.help.addKeys(m.display.keys)
 	m.help = m.help.addKeys(m.footer.keys)
 
