@@ -9,8 +9,8 @@ import (
 )
 
 type cacheEntry struct {
-	Data       any       `json:"data"`
-	LastUpdate time.Time `json:"last_update"`
+	Data       map[string]string `json:"data"`
+	LastUpdate time.Time         `json:"last_update"`
 }
 
 type aurCache struct {
@@ -69,7 +69,7 @@ func (c *aurCache) Get(key string) (any, bool) {
 	return entry.Data, true
 }
 
-func (c *aurCache) Set(key string, data any) {
+func (c *aurCache) Set(key string, data map[string]string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
