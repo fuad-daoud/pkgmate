@@ -20,18 +20,20 @@ type FetchDataEvent struct{}
 type tableKeys struct {
 	customTableKey *customTableKeyMap
 
-	update key.Binding
+	update         key.Binding
+	remove         key.Binding
+	exitSelectMode key.Binding
 }
 
 func (k tableKeys) ShortHelp() []key.Binding {
 	help := k.customTableKey.ShortHelp()
-	help = append(help, k.update)
+	help = append(help, k.update, k.remove)
 	return help
 }
 
 func (k tableKeys) FullHelp() [][]key.Binding {
 	help := k.customTableKey.FullHelp()
-	help = append(help, []key.Binding{k.update})
+	help = append(help, []key.Binding{k.update, k.remove})
 	return help
 }
 
@@ -64,6 +66,8 @@ func (m tableModel) newCursorChangedEvent() tea.Msg {
 func newTable() tableModel {
 	keys := tableKeys{
 		update:         key.NewBinding(key.WithKeys("u"), key.WithHelp("u", "run updates (root)")),
+		remove:         key.NewBinding(key.WithKeys("D"), key.WithHelp("D", "select packages to delete (root)"), key.WithDisabled()),
+		exitSelectMode: key.NewBinding(key.WithKeys("esc"), key.WithHelp("Esc", "clear selected packages"), key.WithDisabled()),
 		customTableKey: newCustomTable().keys,
 	}
 	return tableModel{keys: keys, tables: []customTable{*newCustomTable(), *newCustomTable(), *newCustomTable()}}
@@ -132,27 +136,26 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 			if pkg.IsDirect {
 				m.tables[0].addRow(row)
 				if pkg.NewVersion != "" {
-					m.tables[0].StyledRows[pkg.Name] = updateAvailableRow
+					m.tables[0].addStyleRow(pkg.Name, updateAvailableRow)
 				}
 				if pkg.IsFrozen {
-					m.tables[0].StyledRows[pkg.Name] = frozenRow
+					m.tables[0].addStyleRow(pkg.Name, frozenRowStyle)
 				}
 			} else {
 				m.tables[1].addRow(row)
 				if pkg.NewVersion != "" {
-					m.tables[1].StyledRows[pkg.Name] = updateAvailableRow
+					m.tables[1].addStyleRow(pkg.Name, updateAvailableRow)
 				}
-
 				if pkg.IsFrozen {
-					m.tables[1].StyledRows[pkg.Name] = frozenRow
+					m.tables[1].addStyleRow(pkg.Name, frozenRowStyle)
 				}
 			}
 			m.tables[2].addRow(row)
 			if pkg.NewVersion != "" {
-				m.tables[2].StyledRows[pkg.Name] = updateAvailableRow
+				m.tables[2].addStyleRow(pkg.Name, updateAvailableRow)
 			}
 			if pkg.IsFrozen {
-				m.tables[2].StyledRows[pkg.Name] = frozenRow
+				m.tables[2].addStyleRow(pkg.Name, frozenRowStyle)
 			}
 		}
 		commands = append(commands, m.newSummaryEvent, m.newCursorChangedEvent)
@@ -165,6 +168,15 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 			m.keys.update.SetEnabled(false)
 			commands = append(commands, update)
 			commands = append(commands, func() tea.Msg { return Updating })
+		case key.Matches(msg, m.keys.remove):
+			m.keys.remove.SetEnabled(false)
+			m.keys.exitSelectMode.SetEnabled(true)
+			m.table().EnterSelectMode(dangerRow, cursorAndDangerRow)
+		case key.Matches(msg, m.keys.exitSelectMode):
+			m.keys.exitSelectMode.SetEnabled(false)
+			m.keys.remove.SetEnabled(true)
+			m.table().ExitSelectMode()
+
 		}
 
 	case UpdateStatus:
@@ -181,6 +193,8 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 
 		}
 	case ChangeTabEvent:
+		m.keys.exitSelectMode.SetEnabled(false)
+		m.table().ExitSelectMode()
 		m.activeTable += 1
 		m.activeTable %= len(m.tables)
 		commands = append(commands, m.newSummaryEvent, m.newCursorChangedEvent)
