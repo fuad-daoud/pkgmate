@@ -16,12 +16,39 @@ jobs:
           fetch-depth: 0
       - name: Install dependencies
         run: |
-          pacman -Syu --noconfirm go git base-devel
+          pacman -Syu --noconfirm go git base-devel jq
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: "1.25"
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: -fmt sarif -out gosec-raw.sarif -exclude-generated ./..
+      - name: Clean sarif file
+        run: |
+          cd /__w/pkgmate/pkgmate
+          jq '(.runs[].results[]?.fixes[]? | select(.artifactChanges == null)).artifactChanges = []' \
+          gosec-raw.sarif > gosec-results.sarif
+        continue-on-error: true
+
+      - name: Upload gosec results
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: gosec-results.sarif
+          category: gosec
+
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck -format sarif -tags=arch ./... > govulncheck-results.sarif || true
+
+      - name: Upload govulncheck results
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: govulncheck-results.sarif
+          category: govulncheck
 
       - name: Run GoReleaser (snapshot mode)
         uses: goreleaser/goreleaser-action@v6
