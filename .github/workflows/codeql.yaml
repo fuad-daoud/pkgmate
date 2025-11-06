@@ -37,9 +37,6 @@ jobs:
         with:
           languages: go
           queries: security-extended,security-and-quality
-          packs: |
-            codeql/go-queries
-            githubsecuritylab/codeql-go-queries
 
       # Build with each tag separately to ensure all code paths are analyzed
       - name: Build all variants for complete analysis
