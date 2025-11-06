@@ -1,0 +1,64 @@
+name: "CodeQL Security Scan"
+
+on:
+  push:
+    branches: ["*"]
+  pull_request:
+    branches: ["*"]
+  schedule:
+    - cron: "17 17 * * 1"
+
+jobs:
+  analyze:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm go git base-devel
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: go
+          queries: security-extended,security-and-quality
+          packs: |
+            codeql/go-queries
+            githubsecuritylab/codeql-go-queries
+
+      # Build with each tag separately to ensure all code paths are analyzed
+      - name: Build all variants for complete analysis
+        run: |
+          # Arch build (with CGO)
+          CGO_ENABLED=1 go build -tags=arch ./...
+
+          # Debian build (no CGO)
+          CGO_ENABLED=0 go build -tags=dpkg ./...
+
+          # Brew build (no CGO)
+          CGO_ENABLED=0 go build -tags=brew ./...
+
+          # Ensure all packages are visible to extractor
+          go list -tags=arch ./...
+          go list -tags=dpkg ./...
+          go list -tags=brew ./...
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:go"
