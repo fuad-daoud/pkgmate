@@ -32,6 +32,13 @@ jobs:
           jq '(.runs[].results[]?.fixes[]? | select(.artifactChanges == null)).artifactChanges = []' \
           gosec-raw.sarif > gosec-results.sarif
         continue-on-error: true
+      - name: Upload gosec SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gosec-sarif
+          path: gosec-results.sarif
+          retention-days: 1
 
       - name: Upload gosec results
         uses: github/codeql-action/upload-sarif@v4
@@ -43,6 +50,14 @@ jobs:
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck -format sarif -tags=arch ./... > govulncheck-results.sarif || true
+
+      - name: Upload govulncheck SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: govulncheck-sarif
+          path: govulncheck-results.sarif
+          retention-days: 1
 
       - name: Upload govulncheck results
         uses: github/codeql-action/upload-sarif@v4
