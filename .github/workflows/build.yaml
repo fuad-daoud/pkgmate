@@ -14,6 +14,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          path: .
       - name: Install dependencies
         run: |
           pacman -Syu --noconfirm go git base-devel jq
@@ -22,15 +23,16 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.25"
-      - name: Run Gosec Security Scanner
-        uses: securego/gosec@master
-        with:
-          args: -fmt sarif -out gosec-raw.sarif -exclude-generated ./..
+      - name: Run gosec
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -fmt sarif -out gosec-raw.sarif -no-fail ./...
       - name: Clean sarif file
         run: |
-          cd /__w/pkgmate/pkgmate
-          jq '(.runs[].results[]?.fixes[]? | select(.artifactChanges == null)).artifactChanges = []' \
-          gosec-raw.sarif > gosec-results.sarif
+          jq '(.runs[].results[] | select(.fixes)) |= (
+            .fixes |= map(select(.artifactChanges | length > 0)) |
+            if .fixes == [] then del(.fixes) else . end
+          )' gosec-raw.sarif > gosec-results.sarif
         continue-on-error: true
       - name: Upload gosec SARIF artifact
         if: always()
