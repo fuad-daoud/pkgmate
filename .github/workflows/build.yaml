@@ -24,10 +24,12 @@ jobs:
         with:
           go-version: "1.25"
       - name: Run gosec
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
           gosec -fmt sarif -out gosec-raw.sarif -no-fail ./...
       - name: Clean sarif file
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         run: |
           jq '(.runs[].results[] | select(.fixes)) |= (
             .fixes |= map(select(.artifactChanges | length > 0)) |
@@ -35,7 +37,7 @@ jobs:
           )' gosec-raw.sarif > gosec-results.sarif
         continue-on-error: true
       - name: Upload gosec SARIF artifact
-        if: always()
+        if: always() && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
         uses: actions/upload-artifact@v4
         with:
           name: gosec-sarif
@@ -43,18 +45,20 @@ jobs:
           retention-days: 1
 
       - name: Upload gosec results
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: gosec-results.sarif
           category: gosec
 
       - name: Run govulncheck
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck -format sarif -tags=arch ./... > govulncheck-results.sarif || true
 
       - name: Upload govulncheck SARIF artifact
-        if: always()
+        if: always() && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
         uses: actions/upload-artifact@v4
         with:
           name: govulncheck-sarif
@@ -62,6 +66,7 @@ jobs:
           retention-days: 1
 
       - name: Upload govulncheck results
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: govulncheck-results.sarif
