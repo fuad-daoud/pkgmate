@@ -2,8 +2,6 @@ package main
 
 import (
 	"log/slog"
-	_ "net/http"
-	_ "net/http/pprof"
 	"os"
 	"pkgmate/ui"
 
@@ -14,16 +12,9 @@ import (
 )
 
 func main() {
-	// for memory profiling
-	// go func() {
-	// 	http.ListenAndServe("localhost:6060", nil)
-	// }()
-
-	isPrivileged := os.Geteuid() == 0
 	token := jwt.New(jwt.SigningMethodHS256)
 	_ = token
-
-	os.ReadFile("")
+	isPrivileged := os.Geteuid() == 0
 	p := tea.NewProgram(ui.InitialModel(isPrivileged), tea.WithAltScreen(), tea.WithFPS(24))
 	if _, err := p.Run(); err != nil {
 		slog.Error("Failed to run", "err", err)
