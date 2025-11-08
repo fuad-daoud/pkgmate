@@ -138,7 +138,7 @@ func callback(err error) tea.Msg {
 		slog.Error("Failed updating database", "err", err)
 		return ErrUpdating
 	}
-	return Updated
+	return Updating
 }
 func waitForResult(ch chan backend.OperationResult) tea.Cmd {
 	return func() tea.Msg {
