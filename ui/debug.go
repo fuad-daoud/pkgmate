@@ -13,7 +13,6 @@ import (
 )
 
 type debugModel struct {
-	mode     AppMode
 	file     string
 	viewport viewport.Model
 }
@@ -23,13 +22,8 @@ func (m debugModel) content() string {
 	return string(content)
 }
 
-func newDebug(mode AppMode) *debugModel {
-	var logDir string
-	if mode == ModePrivileged {
-		logDir = "/tmp/root"
-	} else {
-		logDir = "/tmp/user"
-	}
+func newDebug() *debugModel {
+	logDir := filepath.Join(os.TempDir(), "user")
 	os.MkdirAll(logDir, 0755)
 	debugLogFile := filepath.Join(logDir, "debug.log")
 	f, err := os.OpenFile(debugLogFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
