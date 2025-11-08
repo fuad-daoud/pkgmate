@@ -19,9 +19,11 @@ type OperationResult struct {
 
 func createNormalCmd(operation, command string, args ...string) (func() error, chan OperationResult) {
 	resultChan := make(chan OperationResult, 1)
-	logPath := filepath.Join(os.TempDir(), "user", fmt.Sprintf("pkgmate-%s.log", operation))
-	exitPath := filepath.Join(os.TempDir(), "user", fmt.Sprintf("pkgmate-%s.exit", operation))
-
+	rootPath := filepath.Join(os.TempDir(), "user")
+	logFile := fmt.Sprintf("pkgmate-%s.log", operation)
+	logPath := filepath.Join(rootPath, logFile)
+	exitFile := fmt.Sprintf("pkgmate-%s.exit", operation)
+	exitPath := filepath.Join(rootPath, exitFile)
 
 	f := func() error {
 		os.Remove(logPath)
@@ -40,7 +42,7 @@ func createNormalCmd(operation, command string, args ...string) (func() error, c
 		if err != nil {
 			return err
 		}
-		go monitorCompletion(logPath, exitPath, resultChan)
+		go monitorCompletion(rootPath, logFile, exitFile, resultChan)
 		return nil
 	}
 	return f, resultChan
@@ -49,8 +51,11 @@ func createNormalCmd(operation, command string, args ...string) (func() error, c
 
 func CreatePrivilegedCmd(operation, command string, args ...string) (func() error, chan OperationResult) {
 	resultChan := make(chan OperationResult, 1)
-	logPath := filepath.Join(os.TempDir(), "user", fmt.Sprintf("pkgmate-%s.log", operation))
-	exitPath := filepath.Join(os.TempDir(), "user", fmt.Sprintf("pkgmate-%s.exit", operation))
+	rootPath := filepath.Join(os.TempDir(), "user")
+	logFile := fmt.Sprintf("pkgmate-%s.log", operation)
+	logPath := filepath.Join(rootPath, logFile)
+	exitFile := fmt.Sprintf("pkgmate-%s.exit", operation)
+	exitPath := filepath.Join(rootPath, exitFile)
 
 	authFunc := func() error {
 		os.Remove(logPath)
@@ -69,7 +74,7 @@ func CreatePrivilegedCmd(operation, command string, args ...string) (func() erro
 			cmd := exec.Command("pkexec", "sh", "-c", fullCmd)
 			cmd.Stdin = os.Stdin
 			if err := cmd.Run(); err == nil {
-				go monitorCompletion(logPath, exitPath, resultChan)
+				go monitorCompletion(rootPath, logFile, exitFile, resultChan)
 				return nil
 			}
 		}
@@ -78,7 +83,7 @@ func CreatePrivilegedCmd(operation, command string, args ...string) (func() erro
 		cmd.Stdin = os.Stdin
 		err := cmd.Run()
 		if err == nil {
-			go monitorCompletion(logPath, exitPath, resultChan)
+			go monitorCompletion(rootPath, logFile, exitFile, resultChan)
 		}
 		return err
 	}
@@ -86,17 +91,18 @@ func CreatePrivilegedCmd(operation, command string, args ...string) (func() erro
 	return authFunc, resultChan
 }
 
-func monitorCompletion(logPath, exitPath string, resultChan chan OperationResult) {
+func monitorCompletion(rootPath, logPath, exitPath string, resultChan chan OperationResult) {
+	root, _ := os.OpenRoot(rootPath)
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		exitCode, err := os.ReadFile(exitPath)
+		exitCode, err := root.ReadFile(exitPath)
 		if err != nil {
 			continue // Exit file doesn't exist yet
 		}
 
-		logs, _ := os.ReadFile(logPath)
+		logs, _ := root.ReadFile(logPath)
 		code := strings.TrimSpace(string(exitCode))
 
 		resultChan <- OperationResult{
