@@ -8,6 +8,8 @@ import (
 	_ "net/http"
 	_ "net/http/pprof"
 
+	_ "github.com/gin-gonic/gin"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
