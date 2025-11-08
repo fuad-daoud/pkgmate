@@ -135,7 +135,7 @@ func (PriviligedFunction) SetStdout(io.Writer) {}
 func (PriviligedFunction) SetStderr(io.Writer) {}
 func callback(err error) tea.Msg {
 	if err != nil {
-		slog.Error("Failed updating database")
+		slog.Error("Failed updating database", "err", err)
 		return ErrUpdating
 	}
 	return Updated
@@ -151,8 +151,8 @@ func waitForResult(ch chan backend.OperationResult) tea.Cmd {
 }
 
 func Update() (tea.Cmd, chan backend.OperationResult) {
-	authFunc, resultChan := backend.Update()
-	return tea.Exec(PriviligedFunction{authFunc}, callback), resultChan
+	updateFunc, resultChan := backend.Update()
+	return tea.Exec(PriviligedFunction{updateFunc}, callback), resultChan
 }
 
 type PrivilegedCmdSuccess struct{}

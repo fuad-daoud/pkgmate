@@ -375,6 +375,6 @@ func getPinnedFormulae() map[string]bool {
 	return pinned
 }
 
-func Update() error {
-	return exec.Command("brew", "update").Run()
+func Update() (func() error, chan OperationResult) {
+	return createNormalCmd("update", "/home/fuad/homebrew/bin/brew", "update")
 }

@@ -17,10 +17,40 @@ type OperationResult struct {
 	Error   error
 }
 
+func createNormalCmd(operation, command string, args ...string) (func() error, chan OperationResult) {
+	resultChan := make(chan OperationResult, 1)
+	logPath := filepath.Join(os.TempDir(), "user", fmt.Sprintf("pkgmate-%s.log", operation))
+	exitPath := filepath.Join(os.TempDir(), "user", fmt.Sprintf("pkgmate-%s.exit", operation))
+
+
+	f := func() error {
+		os.Remove(logPath)
+		os.Remove(exitPath)
+
+		fullCmd := fmt.Sprintf(
+			"{ %s %s > %s 2>&1; echo $? > %s; } &",
+			command,
+			strings.Join(args, " "),
+			logPath,
+			exitPath,
+		)
+		cmd := exec.Command("sh", "-c", fullCmd)
+		cmd.Stdin = os.Stdin
+		err := cmd.Run()
+		if err != nil {
+			return err
+		}
+		go monitorCompletion(logPath, exitPath, resultChan)
+		return nil
+	}
+	return f, resultChan
+
+}
+
 func CreatePrivilegedCmd(operation, command string, args ...string) (func() error, chan OperationResult) {
 	resultChan := make(chan OperationResult, 1)
-	logPath := filepath.Join(os.TempDir(), fmt.Sprintf("pkgmate-%s.log", operation))
-	exitPath := filepath.Join(os.TempDir(), fmt.Sprintf("pkgmate-%s.exit", operation))
+	logPath := filepath.Join(os.TempDir(), "user", fmt.Sprintf("pkgmate-%s.log", operation))
+	exitPath := filepath.Join(os.TempDir(), "user", fmt.Sprintf("pkgmate-%s.exit", operation))
 
 	authFunc := func() error {
 		os.Remove(logPath)

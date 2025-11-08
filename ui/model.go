@@ -9,13 +9,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type AppMode int
-
-const (
-	ModeNormal AppMode = iota
-	ModePrivileged
-)
-
 type mainKeymap struct {
 	quit  key.Binding
 	debug key.Binding
@@ -31,7 +24,6 @@ func (k mainKeymap) FullHelp() [][]key.Binding {
 
 type model struct {
 	keys           mainKeymap
-	mode           AppMode
 	width          int
 	height         int
 	viewportHeight int
@@ -46,23 +38,18 @@ type model struct {
 	showSpinner    bool
 }
 
-func InitialModel(isPrivileged bool) model {
+func InitialModel() model {
 	var keys = mainKeymap{
 		quit:  key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
 		debug: key.NewBinding(key.WithKeys("ctrl+p"), key.WithHelp("ctrl+p", "show debug file content")),
 	}
 	spin := spinner.New(spinner.WithSpinner(spinner.Monkey))
-	mode := ModeNormal
-	if isPrivileged {
-		mode = ModePrivileged
-	}
 	m := model{
 		keys:      keys,
-		mode:      mode,
-		header:    newHeader(mode),
+		header:    newHeader(),
 		display:   newDisplay(),
 		footer:    newFooter(),
-		debug:     newDebug(mode),
+		debug:     newDebug(),
 		showDebug: false,
 		spin:      spin,
 	}
