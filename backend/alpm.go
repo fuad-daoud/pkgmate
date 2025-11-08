@@ -5,7 +5,6 @@ package backend
 import (
 	"log/slog"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -111,13 +110,13 @@ func getPinnedPackages(h *alpm.Handle) (map[string]bool, error) {
 		return pinned, err
 	}
 
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "IgnorePkg") && strings.Contains(line, "=") {
 			parts := strings.SplitN(line, "=", 2)
 			if len(parts) == 2 {
-				pkgs := strings.Fields(strings.TrimSpace(parts[1]))
-				for _, pkg := range pkgs {
+				pkgs := strings.FieldsSeq(strings.TrimSpace(parts[1]))
+				for pkg := range pkgs {
 					pinned[pkg] = true
 				}
 			}
@@ -127,8 +126,8 @@ func getPinnedPackages(h *alpm.Handle) (map[string]bool, error) {
 	return pinned, nil
 }
 
-func Update() error {
-	return exec.Command("pacman", "-Sy").Run()
+func Update() (func() error, chan OperationResult) {
+	return CreatePrivilegedCmd("update", "pacman", "-Syyu", "--noconfirm")
 }
 
 func isAURPackage(pkgName string, syncDBs alpm.IDBList) bool {

@@ -21,7 +21,6 @@ const (
 )
 
 type headerModel struct {
-	mode         AppMode
 	version      string
 	width        int
 	tabs         []string
@@ -43,7 +42,7 @@ var Version = "dev"
 func newHeader(mode AppMode) headerModel {
 
 	spin := spinner.New(spinner.WithSpinner(spinner.MiniDot))
-	return headerModel{spin: spin, updateStatus: IDLE, mode: mode, version: "Pkgmate " + Version, tabs: []string{"Direct Packages", "Dependency Packages", "All Packages"}}
+	return headerModel{spin: spin, updateStatus: IDLE, version: "Pkgmate " + Version, tabs: []string{"Direct Packages", "Dependency Packages", "All Packages"}}
 }
 
 func (m headerModel) Update(msg tea.Msg) (headerModel, tea.Cmd) {
@@ -88,14 +87,6 @@ func (m headerModel) View() string {
 
 	}
 	var modeIndicator string
-	modeTab := topRightTab.Bold(true).Italic(true).BorderStyle(lipgloss.ThickBorder())
-	if m.mode == ModePrivileged {
-		modeTab = modeTab.BorderForeground(dangerColor)
-		modeIndicator = modeTab.Render("⚠️ PRIVILEGED")
-	} else {
-		modeTab = modeTab.BorderForeground(loadingColor)
-		modeIndicator = modeTab.Render("◆ Normal")
-	}
 	var updateIndicator string
 	updateIndicatorTab := topRightTab.
 		BorderStyle(lipgloss.ThickBorder())

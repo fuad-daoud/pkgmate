@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"io"
 	"log/slog"
 	"pkgmate/backend"
 
@@ -123,11 +124,36 @@ func (m displayModel) View() string {
 	return m.table.View()
 }
 
-func update() tea.Msg {
-	err := backend.Update()
+type PriviligedFunction struct {
+	function func() error
+}
+
+func (pf PriviligedFunction) Run() error { return pf.function() }
+
+func (PriviligedFunction) SetStdin(io.Reader)  {}
+func (PriviligedFunction) SetStdout(io.Writer) {}
+func (PriviligedFunction) SetStderr(io.Writer) {}
+func callback(err error) tea.Msg {
 	if err != nil {
 		slog.Error("Failed updating database")
 		return ErrUpdating
 	}
 	return Updated
 }
+func waitForResult(ch chan backend.OperationResult) tea.Cmd {
+	return func() tea.Msg {
+		result := <-ch
+		if result.Success {
+			return Updated
+		}
+		return ErrUpdating
+	}
+}
+
+func Update() (tea.Cmd, chan backend.OperationResult) {
+	authFunc, resultChan := backend.Update()
+	return tea.Exec(PriviligedFunction{authFunc}, callback), resultChan
+}
+
+type PrivilegedCmdSuccess struct{}
+type PrivilegedCmdError struct{ Err error }

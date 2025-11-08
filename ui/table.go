@@ -166,8 +166,10 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 		switch {
 		case key.Matches(msg, m.keys.update):
 			m.keys.update.SetEnabled(false)
-			commands = append(commands, update)
+			updateFunc, resultChan := Update()
+			commands = append(commands, updateFunc)
 			commands = append(commands, func() tea.Msg { return Updating })
+			commands = append(commands, waitForResult(resultChan))
 		case key.Matches(msg, m.keys.remove):
 			m.keys.remove.SetEnabled(false)
 			m.keys.exitSelectMode.SetEnabled(true)
