@@ -21,6 +21,7 @@ func main() {
 
 	isPrivileged := os.Geteuid() == 0
 
+	os.ReadFile("")
 	p := tea.NewProgram(ui.InitialModel(isPrivileged), tea.WithAltScreen(), tea.WithFPS(24))
 	if _, err := p.Run(); err != nil {
 		slog.Error("Failed to run", "err", err)
