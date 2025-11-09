@@ -79,7 +79,9 @@ func LoadPackages() (chan []Package, error) {
 			slog.Warn("Could not update aur packages")
 		} else {
 			for i, pkg := range aurPackages {
-				aurPackages[i].NewVersion = newVersions[pkg.Name]
+				if aurPackages[i].Version != newVersions[pkg.Name] {
+					aurPackages[i].NewVersion = newVersions[pkg.Name]
+				}
 			}
 		}
 
