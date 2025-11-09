@@ -66,6 +66,7 @@ changelog:
 
 aurs:
   - name: pkgmate-bin
+    ids: [arch-archive]
     homepage: "https://github.com/fuad-daoud/pkgmate"
     description: "TUI application to manage your dependencies"
     maintainers:
