@@ -26,7 +26,7 @@ func (m debugModel) content() string {
 	content, err := root.ReadFile("debug.log")
 	if err != nil {
 		slog.Error("Failed to open debug file", "err", err)
-		os.Exit(1)
+		return ""
 	}
 	return string(content)
 }
