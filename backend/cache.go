@@ -55,7 +55,7 @@ func (c *aurCache) save() {
 	if err != nil {
 		return
 	}
-	os.WriteFile(c.filePath, data, 0644)
+	os.WriteFile(c.filePath, data, 0600)
 }
 
 func (c *aurCache) Get(key string) (any, bool) {
