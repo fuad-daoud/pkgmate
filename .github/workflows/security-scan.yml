@@ -1,0 +1,55 @@
+name: Security Monitoring
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Weekly
+  workflow_dispatch:
+
+jobs:
+  scan-releases:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Get latest release
+        id: release
+        run: |
+          LATEST=$(gh release view --json tagName -q .tagName)
+          echo "tag=$LATEST" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Download assets
+        run: |
+          gh release download ${{ steps.release.outputs.tag }} -p '*.tar.gz'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Scan with VirusTotal
+        run: |
+          for file in *.tar.gz; do
+            HASH=$(sha256sum "$file" | cut -d' ' -f1)
+            echo "Checking $file ($HASH)"
+            
+            RESULT=$(curl -s "https://www.virustotal.com/api/v3/files/$HASH" \
+              -H "x-apikey: ${{ secrets.VIRUSTOTAL_API_KEY }}")
+            
+            DETECTIONS=$(echo "$RESULT" | jq -r '.data.attributes.last_analysis_stats.malicious // 0')
+            
+            if [ "$DETECTIONS" -gt 0 ]; then
+              echo "::warning::$file has $DETECTIONS detections"
+            fi
+          done
+      
+      - name: Create issue if detections found
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'AV Detection Alert',
+              body: 'Automatic security scan found AV detections. Review VirusTotal results.',
+              labels: ['security']
+            })

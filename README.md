@@ -1,5 +1,7 @@
 # PKGMATE your new terminal mate for better tux (Terminal User Experience)
 
+[![Security Scan](https://github.com/fuad-daoud/pkgmate/workflows/Security%20Monitoring/badge.svg)](https://github.com/fuad-daoud/pkgmate/actions/workflows/security-scan.yml)
+
 
 ## Verifying Downloads
 
