@@ -13,7 +13,14 @@ builds:
     goarch: [amd64]
     env: [CGO_ENABLED=1]
     ldflags:
-      - -s -w -X pkgmate/ui.Version={{.Version}}
+      - -s -w
+      - -X pkgmate/ui.Version={{.Version}}
+      - -X pkgmate/ui.BuildTime={{.Date}}
+      - -X pkgmate/ui.GitCommit={{.FullCommit}}
+      - -buildid=
+    flags:
+      - -trimpath
+      - -buildvcs=true
   - id: pkgmate-debian
     main: ./main/main.go
     binary: pkgmate
@@ -22,7 +29,14 @@ builds:
     goarch: [amd64, arm64]
     env: [CGO_ENABLED=0]
     ldflags:
-      - -s -w -X pkgmate/ui.Version={{.Version}}
+      - -s -w
+      - -X pkgmate/ui.Version={{.Version}}
+      - -X pkgmate/ui.BuildTime={{.Date}}
+      - -X pkgmate/ui.GitCommit={{.FullCommit}}
+      - -buildid=
+    flags:
+      - -trimpath
+      - -buildvcs=true
   - id: pkgmate-brew
     main: ./main/main.go
     binary: pkgmate
@@ -31,7 +45,14 @@ builds:
     goarch: [amd64, arm64]
     env: [CGO_ENABLED=0]
     ldflags:
-      - -s -w -X pkgmate/ui.Version={{.Version}}
+      - -s -w
+      - -X pkgmate/ui.Version={{.Version}}
+      - -X pkgmate/ui.BuildTime={{.Date}}
+      - -X pkgmate/ui.GitCommit={{.FullCommit}}
+      - -buildid=
+    flags:
+      - -trimpath
+      - -buildvcs=true
 
 archives:
   - id: arch-archive

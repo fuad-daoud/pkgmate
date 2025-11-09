@@ -5,11 +5,18 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+)
+
+var (
+	Version   = "dev"
+	BuildTime = "unknown"
+	GitCommit = "unknown"
 )
 
 type debugModel struct {
@@ -33,7 +40,7 @@ func (m debugModel) content() string {
 
 func newDebug() *debugModel {
 	rootPath := filepath.Join(os.TempDir(), "user")
-	err := os.MkdirAll(rootPath, 0750)
+	err := os.MkdirAll(rootPath, 0o750)
 	if err != nil {
 		slog.Error("Failed to create logs dir", "err", err)
 		os.Exit(1)
@@ -43,12 +50,19 @@ func newDebug() *debugModel {
 		slog.Error("Failed to open debug dir", "err", err)
 		os.Exit(1)
 	}
-	f, err := root.OpenFile("debug.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	f, err := root.OpenFile("debug.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		slog.Error("Failed to open debug file", "err", err)
 		os.Exit(1)
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(f, nil)))
+	slog.Info("pkgmate", "version", Version)
+	slog.Info("pkgmate", "Built", BuildTime)
+	slog.Info("pkgmate", "Commit", GitCommit)
+
+	if info, ok := debug.ReadBuildInfo(); ok {
+		slog.Info("go version", info.GoVersion)
+	}
 	return &debugModel{rootPath: rootPath}
 }
 
