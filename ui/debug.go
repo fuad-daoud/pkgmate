@@ -24,7 +24,7 @@ func (m debugModel) content() string {
 
 func newDebug() *debugModel {
 	logDir := filepath.Join(os.TempDir(), "user")
-	os.MkdirAll(logDir, 0755)
+	os.MkdirAll(logDir, 0750)
 	debugLogFile := filepath.Join(logDir, "debug.log")
 	f, err := os.OpenFile(debugLogFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {

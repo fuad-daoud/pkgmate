@@ -26,7 +26,7 @@ func newCache() *aurCache {
 	cacheDir := os.TempDir()
 	if userCache, err := os.UserCacheDir(); err == nil {
 		cacheDir = filepath.Join(userCache, "pkgmate")
-		os.MkdirAll(cacheDir, 0755)
+		os.MkdirAll(cacheDir, 0750)
 	}
 
 	c := &aurCache{
