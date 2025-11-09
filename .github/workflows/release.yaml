@@ -35,3 +35,12 @@ jobs:
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           AUR_USERNAME: ${{ secrets.AUR_USERNAME }}
           AUR_EMAIL: ${{ secrets.AUR_EMAIL }}
+      - name: Submit to VirusTotal
+        run: |
+          for file in dist/*.tar.gz dist/*.deb; do
+            echo "Uploading $file to VirusTotal..."
+            curl -X POST 'https://www.virustotal.com/api/v3/files' \
+              -H "x-apikey: ${{ secrets.VIRUSTOTAL_API_KEY }}" \
+              -F "file=@$file" || true
+            sleep 15  # Rate limit: 4 requests/minute on free tier
+          done
