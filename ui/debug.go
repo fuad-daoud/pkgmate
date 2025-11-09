@@ -5,11 +5,18 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+)
+
+var (
+	Version   = "dev"
+	BuildTime = "unknown"
+	GitCommit = "unknown"
 )
 
 type debugModel struct {
@@ -49,6 +56,13 @@ func newDebug() *debugModel {
 		os.Exit(1)
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(f, nil)))
+	slog.Info("pkgmate", "version", Version)
+	slog.Info("pkgmate", "Built", BuildTime)
+	slog.Info("pkgmate", "Commit", GitCommit)
+
+	if info, ok := debug.ReadBuildInfo(); ok {
+		slog.Info("go version", info.GoVersion)
+	}
 	return &debugModel{rootPath: rootPath}
 }
 

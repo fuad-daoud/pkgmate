@@ -37,10 +37,7 @@ func (m headerModel) newHeaderResizeEvent() tea.Msg {
 	}
 }
 
-var Version = "dev"
-
 func newHeader() headerModel {
-
 	spin := spinner.New(spinner.WithSpinner(spinner.MiniDot))
 	return headerModel{spin: spin, updateStatus: IDLE, version: "Pkgmate " + Version, tabs: []string{"Direct Packages", "Dependency Packages", "All Packages"}}
 }
