@@ -385,5 +385,5 @@ func getPinnedFormulae() map[string]bool {
 }
 
 func Update() (func() error, chan OperationResult) {
-	return createNormalCmd("update", "/home/fuad/homebrew/bin/brew", "update")
+	return createNormalCmd("update", "brew", "update")
 }
