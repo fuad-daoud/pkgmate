@@ -49,6 +49,27 @@ archives:
     formats: ["tar.gz"]
     name_template: "{{ .ProjectName }}-brew-{{ .Os }}-{{ .Arch }}"
 
+signs:
+  - cmd: gpg
+    args:
+      - "--batch"
+      - "--pinentry-mode"
+      - "loopback"
+      - "--passphrase"
+      - "{{ .Env.GPG_PASSPHRASE }}"
+      - "--local-user"
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - "--output"
+      - "${signature}"
+      - "--detach-sign"
+      - "${artifact}"
+    artifacts: all
+
+sboms:
+  - artifacts: archive
+    documents:
+      - "${artifact}.sbom.json"
+
 checksum:
   name_template: "checksums.txt"
 
