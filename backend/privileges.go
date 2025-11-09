@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -24,10 +25,21 @@ func createNormalCmd(operation, command string, args ...string) (func() error, c
 	exitPath := filepath.Join(rootPath, exitFile)
 
 	f := func() error {
-		if err := os.Remove(logPath); err != nil {
+		_, err := os.Stat(logPath)
+		if err == nil {
+			if err = os.Remove(logPath); err != nil {
+				return err
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-		if err := os.Remove(exitPath); err != nil {
+		_, err = os.Stat(exitPath)
+
+		if err == nil {
+			if err = os.Remove(exitPath); err != nil {
+				return err
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 
@@ -40,7 +52,7 @@ func createNormalCmd(operation, command string, args ...string) (func() error, c
 		)
 		cmd := exec.Command("sh", "-c", fullCmd)
 		cmd.Stdin = os.Stdin
-		err := cmd.Run()
+		err = cmd.Run()
 		if err != nil {
 			return err
 		}
@@ -48,7 +60,6 @@ func createNormalCmd(operation, command string, args ...string) (func() error, c
 		return nil
 	}
 	return f, resultChan
-
 }
 
 func CreatePrivilegedCmd(operation, command string, args ...string) (func() error, chan OperationResult) {
@@ -60,10 +71,21 @@ func CreatePrivilegedCmd(operation, command string, args ...string) (func() erro
 	exitPath := filepath.Join(rootPath, exitFile)
 
 	authFunc := func() error {
-		if err := os.Remove(logPath); err != nil {
+		_, err := os.Stat(logPath)
+		if err == nil {
+			if err = os.Remove(logPath); err != nil {
+				return err
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-		if err := os.Remove(exitPath); err != nil {
+		_, err = os.Stat(exitPath)
+
+		if err == nil {
+			if err = os.Remove(exitPath); err != nil {
+				return err
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 
@@ -76,10 +98,10 @@ func CreatePrivilegedCmd(operation, command string, args ...string) (func() erro
 			exitPath,
 		)
 
-		if _, err := exec.LookPath("pkexec"); err == nil {
+		if _, err = exec.LookPath("pkexec"); err == nil {
 			cmd := exec.Command("pkexec", "sh", "-c", fullCmd)
 			cmd.Stdin = os.Stdin
-			if err := cmd.Run(); err == nil {
+			if err = cmd.Run(); err == nil {
 				go monitorCompletion(rootPath, logFile, exitFile, resultChan)
 				return nil
 			}
@@ -87,7 +109,7 @@ func CreatePrivilegedCmd(operation, command string, args ...string) (func() erro
 
 		cmd := exec.Command("sudo", "sh", "-c", fullCmd)
 		cmd.Stdin = os.Stdin
-		err := cmd.Run()
+		err = cmd.Run()
 		if err == nil {
 			go monitorCompletion(rootPath, logFile, exitFile, resultChan)
 		}
