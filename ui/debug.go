@@ -33,7 +33,11 @@ func (m debugModel) content() string {
 
 func newDebug() *debugModel {
 	rootPath := filepath.Join(os.TempDir(), "user")
-	os.MkdirAll(rootPath, 0750)
+	err := os.MkdirAll(rootPath, 0750)
+	if err != nil {
+		slog.Error("Failed to create logs dir", "err", err)
+		os.Exit(1)
+	}
 	root, err := os.OpenRoot(rootPath)
 	if err != nil {
 		slog.Error("Failed to open debug dir", "err", err)

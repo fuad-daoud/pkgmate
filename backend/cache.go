@@ -2,6 +2,7 @@ package backend
 
 import (
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -26,7 +27,10 @@ func newCache() *aurCache {
 	cacheDir := os.TempDir()
 	if userCache, err := os.UserCacheDir(); err == nil {
 		cacheDir = filepath.Join(userCache, "pkgmate")
-		os.MkdirAll(cacheDir, 0750)
+		err := os.MkdirAll(cacheDir, 0750)
+		if err != nil {
+			slog.Warn("could not create cache dir", "err", err)
+		}
 	}
 
 	c := &aurCache{
@@ -47,7 +51,10 @@ func (c *aurCache) load() {
 		return // File doesn't exist or can't be read
 	}
 
-	json.Unmarshal(data, &c.data)
+	err = json.Unmarshal(data, &c.data)
+	if err != nil {
+		slog.Warn("could not parse json cache")
+	}
 }
 
 func (c *aurCache) save() {
@@ -55,7 +62,10 @@ func (c *aurCache) save() {
 	if err != nil {
 		return
 	}
-	os.WriteFile(c.filePath, data, 0600)
+	err = os.WriteFile(c.filePath, data, 0600)
+	if err != nil {
+		slog.Warn("could not write to cache file", "filePath", c.filePath)
+	}
 }
 
 func (c *aurCache) Get(key string) (any, bool) {
@@ -85,5 +95,8 @@ func (c *aurCache) Clear() {
 	defer c.mu.Unlock()
 
 	c.data = make(map[string]cacheEntry)
-	os.Remove(c.filePath)
+	err := os.Remove(c.filePath)
+	if err != nil {
+		slog.Warn("could not remove cache file", "err", err)
+	}
 }

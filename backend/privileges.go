@@ -24,8 +24,12 @@ func createNormalCmd(operation, command string, args ...string) (func() error, c
 	exitPath := filepath.Join(rootPath, exitFile)
 
 	f := func() error {
-		os.Remove(logPath)
-		os.Remove(exitPath)
+		if err := os.Remove(logPath); err != nil {
+			return err
+		}
+		if err := os.Remove(exitPath); err != nil {
+			return err
+		}
 
 		fullCmd := fmt.Sprintf(
 			"{ %s %s > %s 2>&1; echo $? > %s; } &",
@@ -56,8 +60,12 @@ func CreatePrivilegedCmd(operation, command string, args ...string) (func() erro
 	exitPath := filepath.Join(rootPath, exitFile)
 
 	authFunc := func() error {
-		os.Remove(logPath)
-		os.Remove(exitPath)
+		if err := os.Remove(logPath); err != nil {
+			return err
+		}
+		if err := os.Remove(exitPath); err != nil {
+			return err
+		}
 
 		// Run command and write exit code when done
 		fullCmd := fmt.Sprintf(

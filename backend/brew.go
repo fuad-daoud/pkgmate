@@ -214,7 +214,7 @@ func getNewestVersion(pkgPath string) (string, error) {
 
 func calculateSize(path string) int64 {
 	var size int64
-	filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return fs.SkipDir
 		}
@@ -222,9 +222,13 @@ func calculateSize(path string) int64 {
 			if info, err := d.Info(); err == nil {
 				size += info.Size()
 			}
+
 		}
 		return nil
 	})
+	if err != nil {
+		slog.Warn("could not calculate size of path", "path", path)
+	}
 	return size
 }
 
