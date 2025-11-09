@@ -13,26 +13,39 @@ import (
 )
 
 type debugModel struct {
-	file     string
 	viewport viewport.Model
+	rootPath string
 }
 
 func (m debugModel) content() string {
-	content, _ := os.ReadFile(m.file)
+	root, err := os.OpenRoot(m.rootPath)
+	if err != nil {
+		slog.Error("Failed to open debug dir", "err", err)
+		os.Exit(1)
+	}
+	content, err := root.ReadFile("debug.log")
+	if err != nil {
+		slog.Error("Failed to open debug file", "err", err)
+		os.Exit(1)
+	}
 	return string(content)
 }
 
 func newDebug() *debugModel {
-	logDir := filepath.Join(os.TempDir(), "user")
-	os.MkdirAll(logDir, 0750)
-	debugLogFile := filepath.Join(logDir, "debug.log")
-	f, err := os.OpenFile(debugLogFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	rootPath := filepath.Join(os.TempDir(), "user")
+	os.MkdirAll(rootPath, 0750)
+	root, err := os.OpenRoot(rootPath)
+	if err != nil {
+		slog.Error("Failed to open debug dir", "err", err)
+		os.Exit(1)
+	}
+	f, err := root.OpenFile("debug.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		slog.Error("Failed to open debug file", "err", err)
 		os.Exit(1)
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(f, nil)))
-	return &debugModel{file: debugLogFile}
+	return &debugModel{rootPath: rootPath}
 }
 
 func (m *debugModel) Update(msg tea.Msg) (*debugModel, tea.Cmd) {

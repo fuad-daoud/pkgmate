@@ -80,10 +80,15 @@ func LoadPackages() (chan []Package, error) {
 						continue
 					}
 
-					verPath := filepath.Join(pkgPath, verEntry.Name())
+					root, err := os.OpenRoot(pkgPath)
 
+					if err != nil {
+						slog.Warn("Could not open pkgPath for", "pkgPath", pkgPath, "err", err)
+						continue
+					}
+					verPath := filepath.Join(pkgPath, verEntry.Name())
 					receiptPath := filepath.Join(verPath, "INSTALL_RECEIPT.json")
-					receiptData, err := os.ReadFile(receiptPath)
+					receiptData, err := root.ReadFile(receiptPath)
 
 					var installDate time.Time
 					var receipt installReceipt
