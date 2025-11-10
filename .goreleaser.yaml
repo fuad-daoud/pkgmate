@@ -21,6 +21,7 @@ builds:
     flags:
       - -trimpath
       - -buildvcs=true
+
   - id: pkgmate-debian
     main: ./main/main.go
     binary: pkgmate
@@ -37,11 +38,12 @@ builds:
     flags:
       - -trimpath
       - -buildvcs=true
-  - id: pkgmate-brew
+
+  - id: pkgmate-brew-linux
     main: ./main/main.go
     binary: pkgmate
     tags: [brew]
-    goos: [darwin, linux]
+    goos: [linux]
     goarch: [amd64, arm64]
     env: [CGO_ENABLED=0]
     ldflags:
@@ -54,6 +56,30 @@ builds:
       - -trimpath
       - -buildvcs=true
 
+  - id: pkgmate-brew-macos
+    main: ./main/main.go
+    binary: pkgmate
+    tags: [brew]
+    goos: [darwin]
+    goarch: [amd64, arm64]
+    env: [CGO_ENABLED=0]
+    ldflags:
+      - -s -w
+      - -X pkgmate/ui.Version={{.Version}}
+      - -X pkgmate/ui.BuildTime={{.Date}}
+      - -X pkgmate/ui.GitCommit={{.FullCommit}}
+      - -buildid=
+    flags:
+      - -trimpath
+      - -buildvcs=true
+
+# Create universal binaries for macOS (combines amd64 and arm64)
+universal_binaries:
+  - id: pkgmate-universal
+    ids: [pkgmate-brew-macos]
+    replace: true
+    name_template: "pkgmate"
+
 archives:
   - id: arch-archive
     ids: [pkgmate-arch]
@@ -65,13 +91,20 @@ archives:
     formats: ["tar.gz"]
     name_template: "{{ .ProjectName }}-debian-{{ .Os }}-{{ .Arch }}"
 
-  - id: brew-archive
-    ids: [pkgmate-brew]
+  - id: brew-archive-linux
+    ids: [pkgmate-brew-linux]
     formats: ["tar.gz"]
     name_template: "{{ .ProjectName }}-brew-{{ .Os }}-{{ .Arch }}"
 
+  - id: brew-archive-macos
+    ids: [pkgmate-universal]
+    formats: ["tar.gz", "zip"]
+    name_template: "{{ .ProjectName }}-brew-{{ .Os }}-universal"
+
 signs:
-  - cmd: gpg
+  # GPG signing for all archives (existing)
+  - id: gpg-sign
+    cmd: gpg
     args:
       - "--batch"
       - "--pinentry-mode"
@@ -85,6 +118,21 @@ signs:
       - "--detach-sign"
       - "${artifact}"
     artifacts: all
+
+# Cross-platform macOS signing and notarization (using quill)
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "APPLE_DEVELOPER_CERTIFICATE_P12_BASE64" }}'
+      ids: [pkgmate-universal]
+      sign:
+        certificate: "{{ .Env.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}"
+        password: "{{ .Env.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}"
+      notarize:
+        issuer_id: "{{ .Env.MACOS_NOTARY_ISSUER_ID }}"
+        key_id: "{{ .Env.MACOS_NOTARY_KEY_ID }}"
+        key: "{{ .Env.MACOS_NOTARY_KEY }}"
+        wait: true
+        timeout: 20m
 
 sboms:
   - artifacts: archive
@@ -136,7 +184,7 @@ nfpms:
     bindir: /usr/bin
 
 homebrew_casks:
-  - ids: [brew-archive]
+  - ids: [brew-archive-macos, brew-archive-linux]
     name: pkgmate
     homepage: "https://github.com/fuad-daoud/pkgmate"
     description: "TUI application to manage your dependencies"

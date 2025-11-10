@@ -35,6 +35,12 @@ jobs:
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           AUR_USERNAME: ${{ secrets.AUR_USERNAME }}
           AUR_EMAIL: ${{ secrets.AUR_EMAIL }}
+          APPLE_DEVELOPER_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
+          APPLE_DEVELOPER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+
       - name: Submit to VirusTotal
         run: |
           for file in dist/*.tar.gz dist/*.deb; do
@@ -42,5 +48,5 @@ jobs:
             curl -X POST 'https://www.virustotal.com/api/v3/files' \
               -H "x-apikey: ${{ secrets.VIRUSTOTAL_API_KEY }}" \
               -F "file=@$file" || true
-            sleep 15  # Rate limit: 4 requests/minute on free tier
+            sleep 15
           done
