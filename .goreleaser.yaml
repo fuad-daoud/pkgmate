@@ -184,7 +184,7 @@ nfpms:
     bindir: /usr/bin
 
 homebrew_casks:
-  - ids: [brew-archive-macos, brew-archive-linux]
+  - ids: [brew-archive-macos]
     name: pkgmate
     homepage: "https://github.com/fuad-daoud/pkgmate"
     description: "TUI application to manage your dependencies"
