@@ -98,7 +98,7 @@ archives:
 
   - id: brew-archive-macos
     ids: [pkgmate-universal]
-    formats: ["tar.gz", "zip"]
+    formats: ["tar.gz"]
     name_template: "{{ .ProjectName }}-brew-{{ .Os }}-universal"
 
 signs:
