@@ -105,7 +105,7 @@ pkgmate --version
 
 ## Verifying Downloads
 
-All releases are GPG signed. Verify authenticity:
+All releases are GPG signed:
 
 ```bash
 export PKGMATE_VERSION="v0.9.0"
@@ -117,6 +117,32 @@ curl https://raw.githubusercontent.com/fuad-daoud/pkgmate/main/public-key.asc | 
 
 # Verify signature
 gpg --verify pkgmate-arch-linux-amd64.tar.gz.sig pkgmate-arch-linux-amd64.tar.gz
+```
+
+## macOS Code Signature Verification
+
+macOS binaries are signed with Apple Developer ID and notarized:
+
+```bash
+export PKGMATE_VERSION="v0.11.0"
+curl -LO https://github.com/fuad-daoud/pkgmate/releases/download/$PKGMATE_VERSION/pkgmate-brew-darwin-universal.tar.gz
+tar -xzf pkgmate-brew-darwin-universal.tar.gz
+
+# Verify code signature
+codesign --verify --verbose pkgmate
+# Check notarization and Gatekeeper approval
+spctl -a -vv -t install
+# View signing details
+codesign -dvvv pkgmate
+```
+
+**Expected output:**
+```
+pkgmate: valid on disk
+pkgmate: satisfies its Designated Requirement
+pkgmate: accepted
+source=Notarized Developer ID
+<many signing info>
 ```
 
 ## Development
