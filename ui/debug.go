@@ -61,7 +61,7 @@ func newDebug() *debugModel {
 	slog.Info("pkgmate", "Commit", GitCommit)
 
 	if info, ok := debug.ReadBuildInfo(); ok {
-		slog.Info("go version", info.GoVersion)
+		slog.Info("pkgmate", "go version", info.GoVersion)
 	}
 	return &debugModel{rootPath: rootPath}
 }
