@@ -1,28 +1,28 @@
 Package: pkgmate
-Version: 0.11.0
-Architecture: arm64
+Version: 0.11.1
+Architecture: amd64
 Maintainer: Fuad Daoud <aur@fuad-daoud.com>
-Installed-Size: 3776
-Filename: pool/main/p/pkgmate/pkgmate_0.11.0_linux_arm64.deb
-Size: 1476412
-MD5sum: 7092a5a24c35dba7090a1c0bce3dc740
-SHA1: feb5909bd7438f3e391440532089f76b21ee8920
-SHA256: 6bb0f5b31335d89cc51092ab4896c4c9da2094d7eb9455c554b01b18d6a226a7
+Installed-Size: 3880
+Filename: pool/main/p/pkgmate/pkgmate_0.11.1_linux_amd64.deb
+Size: 1602472
+MD5sum: f802708af8ebcdf4d153cd05078614ff
+SHA1: 52da7328d0c1887661f9c67bd3b98048259565f7
+SHA256: e3980b85ded2fc2e78276a436d6625dfe94693e67631c71cf39cf490cf370135
 Priority: optional
 Homepage: https://github.com/fuad-daoud/pkgmate
 Description: TUI application to manage your dependencies
 License: MIT
 
 Package: pkgmate
-Version: 0.11.0
-Architecture: amd64
+Version: 0.11.1
+Architecture: arm64
 Maintainer: Fuad Daoud <aur@fuad-daoud.com>
-Installed-Size: 3880
-Filename: pool/main/p/pkgmate/pkgmate_0.11.0_linux_amd64.deb
-Size: 1602400
-MD5sum: cf911e8ae5ed665e4702475aed10f42b
-SHA1: 3d5b5d1da025d216a4d6c6cbbc2bbba532127908
-SHA256: 0aabbaf99dd89c4409b0a42e69fab03eaa43abb5ccd16a7c9cf4ed0de25a200e
+Installed-Size: 3776
+Filename: pool/main/p/pkgmate/pkgmate_0.11.1_linux_arm64.deb
+Size: 1476426
+MD5sum: cbff1a4c0cd2bed607c3c8d7636ff2e8
+SHA1: afcc08f8682f3037b18142cb71ef8473f8e86e2d
+SHA256: 7d7f3b41ebbc8bced95cd49a3afa510f959761961a281d786ce47e9517dd7141
 Priority: optional
 Homepage: https://github.com/fuad-daoud/pkgmate
 Description: TUI application to manage your dependencies
