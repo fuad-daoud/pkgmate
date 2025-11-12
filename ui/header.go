@@ -21,7 +21,6 @@ const (
 )
 
 type headerModel struct {
-	version      string
 	width        int
 	tabs         []string
 	activeTab    int
@@ -39,7 +38,7 @@ func (m headerModel) newHeaderResizeEvent() tea.Msg {
 
 func newHeader() headerModel {
 	spin := spinner.New(spinner.WithSpinner(spinner.MiniDot))
-	return headerModel{spin: spin, updateStatus: IDLE, version: "Pkgmate " + Version, tabs: []string{"Direct Packages", "Dependency Packages", "All Packages"}}
+	return headerModel{spin: spin, updateStatus: IDLE, tabs: []string{"Direct Packages", "Dependency Packages", "All Packages"}}
 }
 
 func (m headerModel) Update(msg tea.Msg) (headerModel, tea.Cmd) {
@@ -68,7 +67,6 @@ func (m headerModel) Update(msg tea.Msg) (headerModel, tea.Cmd) {
 }
 
 func (m headerModel) View() string {
-	version := topRightTab.Render(m.version)
 	tabs := make([]string, len(m.tabs))
 	for i, v := range m.tabs {
 		if i == m.activeTab {
@@ -101,7 +99,7 @@ func (m headerModel) View() string {
 	}
 
 	leftSection := lipgloss.JoinHorizontal(lipgloss.Bottom, tabs...)
-	rightSection := lipgloss.JoinHorizontal(lipgloss.Bottom, updateIndicator, modeIndicator, version)
+	rightSection := lipgloss.JoinHorizontal(lipgloss.Bottom, updateIndicator, modeIndicator)
 	spacer := spaceStyle.Width(m.width - lipgloss.Width(leftSection) - lipgloss.Width(rightSection)).Render()
 	return lipgloss.JoinHorizontal(lipgloss.Center, leftSection, spacer, rightSection)
 }

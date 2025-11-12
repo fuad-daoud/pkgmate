@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -134,9 +135,28 @@ func (m model) View() string {
 		content := fmt.Sprintf("%s Terminal Width (%d) less the minimum width %d", m.spin.View(), m.width, 70)
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 	}
+
 	content := lipgloss.JoinVertical(lipgloss.Bottom, m.header.View(), m.display.View(), m.footer.View())
-	content = frameStyle.Render(content)
-	content = lipgloss.JoinVertical(lipgloss.Top, content, m.help.View())
+
+	title := " Pkgmate "
+	frameWidth := lipgloss.Width(content)
+
+	leftPadding := (frameWidth - lipgloss.Width(title)) / 2
+	rightPadding := frameWidth - lipgloss.Width(title) - leftPadding
+
+	topBorder := "╭" + strings.Repeat("─", leftPadding) + title + strings.Repeat("─", rightPadding) + "╮"
+
+	// Add side borders to content
+	lines := strings.Split(content, "\n")
+	bordered := make([]string, 0, len(lines)+2)
+	bordered = append(bordered, topBorder)
+	for _, line := range lines {
+		bordered = append(bordered, "│"+line+"│")
+	}
+	bordered = append(bordered, "╰"+strings.Repeat("─", frameWidth)+"╯")
+
+	framedContent := strings.Join(bordered, "\n")
+	content = lipgloss.JoinVertical(lipgloss.Top, framedContent, m.help.View())
 	content = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Top, content)
 	return content
 }
