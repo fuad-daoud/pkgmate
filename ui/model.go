@@ -29,11 +29,10 @@ type model struct {
 	height         int
 	viewportHeight int
 	viewportWidth  int
-	header         headerModel
 	display        displayModel
-	footer         footerModel
 	help           helpModel
 	debug          *debugModel
+	// commandPalette commandPaletteModel
 	showDebug      bool
 	spin           spinner.Model
 	showSpinner    bool
@@ -46,20 +45,17 @@ func InitialModel() model {
 	}
 	spin := spinner.New(spinner.WithSpinner(spinner.Monkey))
 	m := model{
-		keys:      keys,
-		header:    newHeader(),
-		display:   newDisplay(),
-		footer:    newFooter(),
-		debug:     newDebug(),
-		showDebug: false,
-		spin:      spin,
+		keys:           keys,
+		// commandPalette: newCommandPalette(),
+		display:        newDisplay(),
+		debug:          newDebug(),
+		showDebug:      false,
+		spin:           spin,
+		help: NewHelpModel(),
 	}
-	m.help = NewHelpModel()
 
-	m.help = m.help.addKeys(m.keys)
-	m.help = m.help.addKeys(m.display.table.keys)
-	m.help = m.help.addKeys(m.display.keys)
-	m.help = m.help.addKeys(m.footer.keys)
+	// m.help = m.help.addKeys(m.keys)
+	// m.help = m.help.addKeys(m.display.table.keys)
 
 	return m
 }
@@ -95,25 +91,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.quit):
-			if !m.footer.search.Focused() {
-				return m, tea.Quit
-			}
-		case key.Matches(msg, m.keys.debug):
-			m.showDebug = !m.showDebug
+			// if !m.footer.search.Focused() {
+			return m, tea.Quit
+			// }
+		// case key.Matches(msg, key.NewBinding(key.WithKeys("ctrl+k"))):
+		// 	m.commandPalette = m.commandPalette.Toggle()
 		}
 	}
-	var footerCmd tea.Cmd
-	m.footer, footerCmd = m.footer.Update(msg)
-	commands = append(commands, footerCmd)
+	// var footerCmd tea.Cmd
+	// m.footer, footerCmd = m.footer.Update(msg)
+	// commands = append(commands, footerCmd)
 
 	var displayCmd tea.Cmd
 	m.display, displayCmd = m.display.Update(msg)
 	commands = append(commands, displayCmd)
-
-	var headerCmd tea.Cmd
-
-	m.header, headerCmd = m.header.Update(msg)
-	commands = append(commands, headerCmd)
 
 	var debugCmd tea.Cmd
 	m.debug, debugCmd = m.debug.Update(msg)
@@ -122,6 +113,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var helpCmd tea.Cmd
 	m.help, helpCmd = m.help.Update(msg)
 	commands = append(commands, helpCmd)
+
+	// var cmd tea.Cmd
+	// m.commandPalette, cmd = m.commandPalette.Update(msg)
+	// commands = append(commands, cmd)
 
 	return m, tea.Batch(commands...)
 }
@@ -136,7 +131,7 @@ func (m model) View() string {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 	}
 
-	content := lipgloss.JoinVertical(lipgloss.Bottom, m.header.View(), m.display.View(), m.footer.View())
+	content := lipgloss.JoinVertical(lipgloss.Bottom, m.display.View())
 
 	title := " Pkgmate "
 	frameWidth := lipgloss.Width(content)
@@ -156,7 +151,11 @@ func (m model) View() string {
 	bordered = append(bordered, "╰"+strings.Repeat("─", frameWidth)+"╯")
 
 	framedContent := strings.Join(bordered, "\n")
-	content = lipgloss.JoinVertical(lipgloss.Top, framedContent, m.help.View())
+	content = lipgloss.JoinVertical(lipgloss.Top, framedContent)
 	content = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Top, content)
+	// if m.commandPalette.visible {
+	// 	content = PlaceOverlay(content, m.commandPalette.View())
+	// }
+
 	return content
 }

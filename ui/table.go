@@ -3,12 +3,22 @@ package ui
 import (
 	"log/slog"
 	"os"
+	"slices"
+	"strconv"
+	"strings"
 
 	"pkgmate/backend"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+const (
+	HeaderHeight = 2
+	FooterHeight = 2
 )
 
 type TableSummaryEvent struct {
@@ -20,57 +30,62 @@ type FetchDataEvent struct{}
 type tableKeys struct {
 	customTableKey *customTableKeyMap
 
-	update         key.Binding
+	tab            key.Binding
 	remove         key.Binding
 	exitSelectMode key.Binding
+	search         key.Binding
+	reset          key.Binding
+	submit         key.Binding
 }
 
 func (k tableKeys) ShortHelp() []key.Binding {
 	help := k.customTableKey.ShortHelp()
-	help = append(help, k.update, k.remove)
+	help = append(help, k.remove)
 	return help
 }
 
 func (k tableKeys) FullHelp() [][]key.Binding {
 	help := k.customTableKey.FullHelp()
-	help = append(help, []key.Binding{k.update, k.remove})
+	help = append(help, []key.Binding{k.remove})
 	return help
 }
 
 type tableModel struct {
-	keys        tableKeys
-	tables      []customTable
-	lastCursor  int
-	activeTable int
-	pkgStream   chan []backend.Package
+	keys         tableKeys
+	tables       []customTable
+	search       textinput.Model
+	previousTerm string
+	lastCursor   int
+	activeTable  int
+	pkgStream    chan []backend.Package
 }
 
 func (m *tableModel) table() *customTable {
 	return &m.tables[m.activeTable]
 }
 
-func (m tableModel) newSummaryEvent() tea.Msg {
-	return TableSummaryEvent{
-		count: len(m.table().Rows),
-	}
-}
-
 type CursorChangedEvent struct {
 	cursor int
 }
 
-func (m tableModel) newCursorChangedEvent() tea.Msg {
-	return CursorChangedEvent{cursor: m.table().cursor + 1}
-}
-
 func newTable() tableModel {
 	keys := tableKeys{
-		update:         key.NewBinding(key.WithKeys("u"), key.WithHelp("u", "run updates (root)")),
 		remove:         key.NewBinding(key.WithKeys("D"), key.WithHelp("D", "select packages to delete (root)"), key.WithDisabled()),
 		exitSelectMode: key.NewBinding(key.WithKeys("esc"), key.WithHelp("Esc", "clear selected packages"), key.WithDisabled()),
-		customTableKey: newCustomTable().keys,
+		customTableKey: newCustomTable("Direct Packages").keys,
+		search:         key.NewBinding(key.WithKeys("/", "ctrl+f"), key.WithHelp("//ctrl+f", "focus search box")),
+		reset:          key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "reset search"), key.WithDisabled()),
+		submit:         key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "submit search"), key.WithDisabled()),
+		tab:            key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "shift through tabs")),
 	}
-	return tableModel{keys: keys, tables: []customTable{*newCustomTable(), *newCustomTable(), *newCustomTable()}}
+
+	ti := textinput.New()
+	ti.Placeholder = "Search packages..."
+	ti.Prompt = ""
+	ti.CharLimit = 50
+	ti.Width = 50
+	ti.ShowSuggestions = false
+	return tableModel{keys: keys, tables: []customTable{*newCustomTable("Direct Packages"), *newCustomTable("Dependency Packages"), *newCustomTable("All Packages")}, search: ti}
 }
 
 type PackageStreamMsg struct {
@@ -111,24 +126,10 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 	case DisplayResizeEvent:
 		slog.Info("got display resize message", "msg", msg)
 		for i := range m.tables {
-			m.tables[i].Height = msg.height
-			m.tables[i].Width = msg.width - 2
+			m.tables[i].Height = msg.height - HeaderHeight - FooterHeight
+			m.tables[i].Width = msg.width
 		}
 
-	case SearchFocusedEvent:
-		m.table().Blur()
-		m.keys.update.SetEnabled(false)
-	case SearchBluredEvent:
-		m.table().Focus()
-		m.keys.update.SetEnabled(true)
-	case SearchResetedEvent:
-		m.table().Reset()
-		m.keys.update.SetEnabled(true)
-		commands = append(commands, m.newSummaryEvent)
-
-	case NewSearchTermEvent:
-		m.table().filterColumn("Name", msg.term)
-		commands = append(commands, m.newSummaryEvent)
 	case PackageStreamMsg:
 		pkgs := msg.pkgs
 		for _, pkg := range pkgs {
@@ -158,18 +159,11 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 				m.tables[2].addStyleRow(pkg.Name, frozenRowStyle)
 			}
 		}
-		commands = append(commands, m.newSummaryEvent, m.newCursorChangedEvent)
 		if !msg.done {
 			commands = append(commands, m.listen)
 		}
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, m.keys.update):
-			m.keys.update.SetEnabled(false)
-			updateFunc, resultChan := Update()
-			commands = append(commands, updateFunc)
-			commands = append(commands, func() tea.Msg { return Updating })
-			commands = append(commands, waitForResult(resultChan))
 		case key.Matches(msg, m.keys.remove):
 			m.keys.remove.SetEnabled(false)
 			m.keys.exitSelectMode.SetEnabled(true)
@@ -178,40 +172,118 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 			m.keys.exitSelectMode.SetEnabled(false)
 			m.keys.remove.SetEnabled(true)
 			m.table().ExitSelectMode()
-
+		case key.Matches(msg, m.keys.tab):
+			m.keys.exitSelectMode.SetEnabled(false)
+			m.table().ExitSelectMode()
+			m.activeTable += 1
+			m.activeTable %= len(m.tables)
 		}
 
-	case UpdateStatus:
-		switch msg {
-		case Updated, ErrUpdating:
-			m.keys.update.SetEnabled(true)
-			pkgChan, err := backend.LoadPackages()
-			if err != nil {
-				slog.Error("could not load packages", "err", err)
-				os.Exit(1)
-			}
-			m.pkgStream = pkgChan
-			commands = append(commands, m.listen)
-
-		}
-	case ChangeTabEvent:
-		m.keys.exitSelectMode.SetEnabled(false)
-		m.table().ExitSelectMode()
-		m.activeTable += 1
-		m.activeTable %= len(m.tables)
-		commands = append(commands, m.newSummaryEvent, m.newCursorChangedEvent)
 	}
 	var newCmd tea.Cmd
-
 	m.tables[m.activeTable], newCmd = m.table().Update(msg)
 	if m.lastCursor != m.table().cursor {
 		m.lastCursor = m.table().cursor
-		commands = append(commands, m.newCursorChangedEvent)
 	}
 	commands = append(commands, newCmd)
+
+	m, newCmd = m.footerUpdates(msg)
+	commands = append(commands, newCmd)
+
+	return m, tea.Batch(commands...)
+}
+func (m tableModel) footerUpdates(msg tea.Msg) (tableModel, tea.Cmd) {
+	commands := make([]tea.Cmd, 0)
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, m.keys.search):
+			m.search.Focus()
+
+			m.keys.reset.SetEnabled(true)
+			m.keys.submit.SetEnabled(true)
+			m.keys.search.SetEnabled(false)
+
+			m.table().Blur()
+			return m, textinput.Blink
+
+		case key.Matches(msg, m.keys.reset):
+			m.search.Blur()
+			m.search.Reset()
+			m.search.SetValue("")
+			m.previousTerm = ""
+
+			m.keys.reset.SetEnabled(false)
+			m.keys.submit.SetEnabled(false)
+			m.keys.search.SetEnabled(true)
+
+			m.table().Reset()
+			return m, nil
+
+		case key.Matches(msg, m.keys.submit):
+			m.search.Blur()
+
+			m.keys.reset.SetEnabled(true)
+			m.keys.submit.SetEnabled(false)
+			m.keys.search.SetEnabled(true)
+
+			m.table().Focus()
+
+			return m, nil
+		default:
+			if m.search.Focused() && !slices.Contains(msg.Runes, '?') {
+				var cmd tea.Cmd
+				m.search, cmd = m.search.Update(msg)
+				term := strings.ToLower(m.search.Value())
+				if m.previousTerm == term {
+					return m, cmd
+				}
+				m.previousTerm = term
+
+				m.table().filterColumn("Name", m.previousTerm)
+				return m, nil
+			}
+
+		}
+
+	}
+
 	return m, tea.Batch(commands...)
 }
 
 func (m tableModel) View() string {
-	return m.table().View()
+	return lipgloss.JoinVertical(lipgloss.Bottom, m.tabsView(), m.table().View(), m.footerView())
+}
+
+func (m tableModel) tabsView() string {
+	tabs := make([]string, len(m.tables))
+	for i, v := range m.tables {
+		if i == m.activeTable {
+			tab := topLeftTab.Bold(true).
+				BorderStyle(lipgloss.ThickBorder()).
+				BorderForeground(selectedColor).
+				Render(v.label)
+			tabs = append(tabs, tab)
+			continue
+		}
+		tab := topLeftTab.Render(v.label)
+		tabs = append(tabs, tab)
+
+	}
+
+	leftSection := lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
+	spacer := spaceStyle.Width(m.table().Width - lipgloss.Width(leftSection)).Render()
+	return lipgloss.JoinHorizontal(lipgloss.Bottom, leftSection, spacer)
+}
+
+func (m tableModel) footerView() string {
+	cursor := bottomRightTab.Render(strconv.Itoa(m.table().cursor + 1))
+	count := bottomRightTab.Render(strconv.Itoa(len(m.table().Rows)))
+	rightSection := lipgloss.JoinHorizontal(lipgloss.Top, cursor, count)
+
+	styledSearch := bottomLeftTab.Render(m.search.View())
+	searchColumn := bottomLeftTab.Bold(true).Render("Name")
+	leftSection := lipgloss.JoinHorizontal(lipgloss.Bottom, styledSearch, searchColumn)
+	spacer := spaceStyle.Width(m.table().Width - lipgloss.Width(leftSection) - lipgloss.Width(rightSection)).Render()
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftSection, spacer, rightSection)
 }

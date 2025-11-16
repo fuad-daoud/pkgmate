@@ -32,6 +32,7 @@ func (k customTableKeyMap) FullHelp() [][]key.Binding {
 }
 
 type customTable struct {
+	label                 string
 	keys                  *customTableKeyMap
 	Columns               []string
 	mp                    map[string]int
@@ -53,7 +54,7 @@ type customTable struct {
 	selectedRows          map[string]bool
 }
 
-func newCustomTable() *customTable {
+func newCustomTable(label string) *customTable {
 	keys := customTableKeyMap{
 		up:       key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "move up")),
 		down:     key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "move down")),
@@ -64,6 +65,7 @@ func newCustomTable() *customTable {
 		choose:   key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "select row"), key.WithDisabled()),
 	}
 	return &customTable{
+		label:                 label,
 		keys:                  &keys,
 		mp:                    make(map[string]int),
 		Columns:               []string{},
