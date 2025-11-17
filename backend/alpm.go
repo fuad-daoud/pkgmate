@@ -129,7 +129,7 @@ func getPinnedPackages(h *alpm.Handle) (map[string]bool, error) {
 }
 
 func Update() (func() error, chan OperationResult) {
-	return CreatePrivilegedCmd("update", "pacman", "-Syyu", "--noconfirm")
+	return CreatePrivilegedCmd("update", "pacman", "-Syy", "--noconfirm")
 }
 
 func isAURPackage(pkgName string, syncDBs alpm.IDBList) bool {
