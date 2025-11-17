@@ -11,8 +11,7 @@ import (
 )
 
 type mainKeymap struct {
-	quit  key.Binding
-	debug key.Binding
+	quit key.Binding
 }
 
 func (k mainKeymap) ShortHelp() []key.Binding {
@@ -20,7 +19,7 @@ func (k mainKeymap) ShortHelp() []key.Binding {
 }
 
 func (k mainKeymap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{{k.quit, k.debug}}
+	return [][]key.Binding{{k.quit}}
 }
 
 type model struct {
@@ -31,32 +30,21 @@ type model struct {
 	viewportWidth  int
 	display        displayModel
 	help           helpModel
-	debug          *debugModel
-	// commandPalette commandPaletteModel
-	showDebug      bool
 	spin           spinner.Model
 	showSpinner    bool
 }
 
 func InitialModel() model {
 	var keys = mainKeymap{
-		quit:  key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
-		debug: key.NewBinding(key.WithKeys("ctrl+p"), key.WithHelp("ctrl+p", "show debug file content")),
+		quit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
 	}
 	spin := spinner.New(spinner.WithSpinner(spinner.Monkey))
 	m := model{
-		keys:           keys,
-		// commandPalette: newCommandPalette(),
-		display:        newDisplay(),
-		debug:          newDebug(),
-		showDebug:      false,
-		spin:           spin,
-		help: NewHelpModel(),
+		keys:    keys,
+		display: newDisplay(),
+		spin:    spin,
+		help:    NewHelpModel(),
 	}
-
-	// m.help = m.help.addKeys(m.keys)
-	// m.help = m.help.addKeys(m.display.table.keys)
-
 	return m
 }
 
@@ -91,41 +79,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.quit):
-			// if !m.footer.search.Focused() {
 			return m, tea.Quit
-			// }
-		// case key.Matches(msg, key.NewBinding(key.WithKeys("ctrl+k"))):
-		// 	m.commandPalette = m.commandPalette.Toggle()
 		}
 	}
-	// var footerCmd tea.Cmd
-	// m.footer, footerCmd = m.footer.Update(msg)
-	// commands = append(commands, footerCmd)
 
 	var displayCmd tea.Cmd
 	m.display, displayCmd = m.display.Update(msg)
 	commands = append(commands, displayCmd)
 
-	var debugCmd tea.Cmd
-	m.debug, debugCmd = m.debug.Update(msg)
-	commands = append(commands, debugCmd)
-
-	var helpCmd tea.Cmd
-	m.help, helpCmd = m.help.Update(msg)
-	commands = append(commands, helpCmd)
-
-	// var cmd tea.Cmd
-	// m.commandPalette, cmd = m.commandPalette.Update(msg)
-	// commands = append(commands, cmd)
-
 	return m, tea.Batch(commands...)
 }
 
 func (m model) View() string {
-	if m.showDebug {
-		content := frameStyle.Render(m.debug.View())
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
-	}
 	if m.showSpinner {
 		content := fmt.Sprintf("%s Terminal Width (%d) less the minimum width %d", m.spin.View(), m.width, 70)
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
@@ -141,7 +106,6 @@ func (m model) View() string {
 
 	topBorder := "╭" + strings.Repeat("─", leftPadding) + title + strings.Repeat("─", rightPadding) + "╮"
 
-	// Add side borders to content
 	lines := strings.Split(content, "\n")
 	bordered := make([]string, 0, len(lines)+2)
 	bordered = append(bordered, topBorder)
@@ -153,9 +117,6 @@ func (m model) View() string {
 	framedContent := strings.Join(bordered, "\n")
 	content = lipgloss.JoinVertical(lipgloss.Top, framedContent)
 	content = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Top, content)
-	// if m.commandPalette.visible {
-	// 	content = PlaceOverlay(content, m.commandPalette.View())
-	// }
 
 	return content
 }

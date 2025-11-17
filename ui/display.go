@@ -1,14 +1,10 @@
 package ui
 
 import (
+	"reflect"
+
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-)
-
-type SelectedDisplay int
-
-const (
-	TableDisplay SelectedDisplay = iota
-	// UpdateDisplay
 )
 
 type DisplayResizeEvent struct {
@@ -16,12 +12,20 @@ type DisplayResizeEvent struct {
 	width  int
 }
 
+type ChangeDisplay struct {
+	display tea.Model
+}
+
+func NewChangeDisplay(m tea.Model) tea.Cmd {
+	return func() tea.Msg { return ChangeDisplay{display: m} }
+
+}
+
 type displayModel struct {
-	table       tableModel
-	// updateModel *updateViewModel
-	selected    SelectedDisplay
-	height      int
-	width       int
+	currentDisplay tea.Model
+	commandPalette commandPaletteModel
+	height         int
+	width          int
 }
 
 func (m displayModel) newDisplayResizeEvent() tea.Msg {
@@ -33,9 +37,8 @@ func (m displayModel) newDisplayResizeEvent() tea.Msg {
 
 func newDisplay() displayModel {
 	m := displayModel{
-		table:       newTable(),
-		// updateModel: newUpdateView(),
-		selected:    TableDisplay,
+		currentDisplay: newTable(),
+		commandPalette: newCommandPalette(),
 	}
 
 	return m
@@ -51,23 +54,49 @@ func (m displayModel) Update(msg tea.Msg) (displayModel, tea.Cmd) {
 		m.width = msg.Width - 2
 		commands = append(commands, m.newDisplayResizeEvent)
 
-	case SelectedDisplay:
-		m.selected = msg
-	}
-	var cmd tea.Cmd
-	m.table, cmd = m.table.Update(msg)
-	commands = append(commands, cmd)
+	case ProgramInitEvent:
+		cmd := m.currentDisplay.Init()
+		commands = append(commands, cmd)
 
-	// var updateViewCmd tea.Cmd
-	// m.updateModel, updateViewCmd = m.updateModel.Update(msg)
-	// commands = append(commands, updateViewCmd)
+	case ChangeDisplay:
+		m.currentDisplay = msg.display
+		cmd := m.currentDisplay.Init()
+		commands = append(commands, cmd)
+		commands = append(commands, m.newDisplayResizeEvent)
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, key.NewBinding(key.WithKeys("ctrl+k"))):
+			m.commandPalette = m.commandPalette.Toggle()
+			commands = append(commands, m.newDisplayResizeEvent)
+		}
+	}
+
+	if !m.commandPalette.visible {
+		var cmd tea.Cmd
+		m.currentDisplay, cmd = m.currentDisplay.Update(msg)
+		commands = append(commands, cmd)
+	} else {
+		var cmd tea.Cmd
+		m.commandPalette, cmd = m.commandPalette.Update(msg)
+		commands = append(commands, cmd)
+	}
+	if reflect.TypeOf(msg).Name() == "DisplayResizeEvent" {
+		var cmd tea.Cmd
+		m.currentDisplay, cmd = m.currentDisplay.Update(msg)
+		commands = append(commands, cmd)
+
+		m.commandPalette, cmd = m.commandPalette.Update(msg)
+		commands = append(commands, cmd)
+	}
 
 	return m, tea.Batch(commands...)
 }
 
 func (m displayModel) View() string {
-	// if m.selected == UpdateDisplay {
-	// 	return m.updateModel.View()
-	// }
-	return m.table.View()
+	content := m.currentDisplay.View()
+
+	if m.commandPalette.visible {
+		content = PlaceOverlay(content, m.commandPalette.View())
+	}
+	return content
 }

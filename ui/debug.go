@@ -22,6 +22,8 @@ var (
 type debugModel struct {
 	viewport viewport.Model
 	rootPath string
+	width    int
+	height   int
 }
 
 func (m debugModel) content() string {
@@ -37,8 +39,9 @@ func (m debugModel) content() string {
 	}
 	return string(content)
 }
+func (debugModel) Init() tea.Cmd { return nil }
 
-func newDebug() *debugModel {
+func newDebug() debugModel {
 	rootPath := filepath.Join(os.TempDir(), "user")
 	err := os.MkdirAll(rootPath, 0750)
 	if err != nil {
@@ -63,13 +66,15 @@ func newDebug() *debugModel {
 	if info, ok := debug.ReadBuildInfo(); ok {
 		slog.Info("pkgmate", "go version", info.GoVersion)
 	}
-	return &debugModel{rootPath: rootPath}
+	return debugModel{rootPath: rootPath}
 }
 
-func (m *debugModel) Update(msg tea.Msg) (*debugModel, tea.Cmd) {
+func (m debugModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.viewport = viewport.New(msg.Width-2, msg.Height-5) // -2 because of the frame -5 because of the frame and the footer
+	case DisplayResizeEvent:
+		m.width = msg.width
+		m.height = msg.height
+		m.viewport = viewport.New(msg.width, msg.height)
 	}
 
 	m.viewport.SetContent(m.content())
@@ -90,9 +95,10 @@ var infoStyle = func() lipgloss.Style {
 	return titleStyle.BorderStyle(b)
 }()
 
-func (m *debugModel) View() string {
+func (m debugModel) View() string {
 	info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.viewport.ScrollPercent()*100))
-	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(info)))
+	line := strings.Repeat("─", max(1, m.viewport.Width-lipgloss.Width(info)))
 	footer := lipgloss.JoinHorizontal(lipgloss.Center, line, info)
-	return lipgloss.JoinVertical(lipgloss.Top, m.viewport.View(), footer)
+	content := lipgloss.JoinVertical(lipgloss.Top, m.viewport.View(), footer)
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 }

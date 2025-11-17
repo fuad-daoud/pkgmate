@@ -21,11 +21,7 @@ const (
 	FooterHeight = 2
 )
 
-type TableSummaryEvent struct {
-	count int
-}
-
-type FetchDataEvent struct{}
+type TableInitEvent struct{}
 
 type tableKeys struct {
 	customTableKey *customTableKeyMap
@@ -87,6 +83,9 @@ func newTable() tableModel {
 	ti.ShowSuggestions = false
 	return tableModel{keys: keys, tables: []customTable{*newCustomTable("Direct Packages"), *newCustomTable("Dependency Packages"), *newCustomTable("All Packages")}, search: ti}
 }
+func (m tableModel) Init() tea.Cmd {
+	return func() tea.Msg { return TableInitEvent{} }
+}
 
 type PackageStreamMsg struct {
 	done bool
@@ -102,10 +101,10 @@ func (m tableModel) listen() tea.Msg {
 	return PackageStreamMsg{pkgs: data}
 }
 
-func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
+func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var commands []tea.Cmd
 	switch msg := msg.(type) {
-	case ProgramInitEvent:
+	case TableInitEvent:
 		columns := []string{
 			"Name",
 			"Version",
@@ -124,7 +123,6 @@ func (m tableModel) Update(msg tea.Msg) (tableModel, tea.Cmd) {
 		commands = append(commands, m.listen)
 
 	case DisplayResizeEvent:
-		slog.Info("got display resize message", "msg", msg)
 		for i := range m.tables {
 			m.tables[i].Height = msg.height - HeaderHeight - FooterHeight
 			m.tables[i].Width = msg.width
