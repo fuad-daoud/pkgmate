@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+reviews:
+  # Enable high-level summary generation
+  high_level_summary: true
+
+  # Disable automatic code review
+  auto_review:
+    enabled: false
+
+  # Optional: disable other features you don't want
+  poem: false
+  review_status: false
+  collapse_walkthrough: true
