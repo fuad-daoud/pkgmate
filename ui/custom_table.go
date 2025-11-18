@@ -201,6 +201,23 @@ func (m *customTable) View() string {
 	if len(m.Columns) == 0 {
 		return ""
 	}
+	if len(m.Rows) == 0 {
+		emptyStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#888888")).
+			Italic(true)
+
+		content := emptyStyle.Render("🔍 No results found")
+
+		emptyView := lipgloss.Place(
+			m.Width,
+			m.Height-1, // -1 for header
+			lipgloss.Center,
+			lipgloss.Center,
+			content,
+		)
+
+		return emptyView
+	}
 
 	var b strings.Builder
 
