@@ -86,15 +86,18 @@ func LoadPackages() (chan []Package, error) {
 						slog.Warn("Could not open pkgPath for", "pkgPath", pkgPath, "err", err)
 						continue
 					}
-					verPath := filepath.Join(pkgPath, verEntry.Name())
-					receiptPath := filepath.Join(verPath, "INSTALL_RECEIPT.json")
+					receiptPath := filepath.Join(verEntry.Name(), "INSTALL_RECEIPT.json")
 					receiptData, err := root.ReadFile(receiptPath)
+					if err != nil {
+						slog.Warn("could not read data for pacakge", "package", pkgName, "err", err)
+						continue
+					}
 
 					var installDate time.Time
 					var receipt installReceipt
 					isDirect := true // Default to direct if no receipt
 
-					if err == nil && json.Unmarshal(receiptData, &receipt) == nil {
+					if json.Unmarshal(receiptData, &receipt) == nil {
 						if receipt.Time > 0 {
 							installDate = time.Unix(receipt.Time, 0)
 						}
@@ -105,6 +108,7 @@ func LoadPackages() (chan []Package, error) {
 						installDate = time.Now()
 					}
 
+					verPath := filepath.Join(pkgPath, verEntry.Name())
 					size := calculateSize(verPath)
 
 					results <- Package{
