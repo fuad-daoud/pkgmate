@@ -2,7 +2,6 @@ package ui
 
 import (
 	"log/slog"
-	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -22,6 +21,11 @@ const (
 )
 
 type TableInitEvent struct{}
+type LoadOrphans struct{}
+
+func NewLoadOrphans() tea.Msg {
+	return LoadOrphans{}
+}
 
 type tableKeys struct {
 	customTableKey *customTableKeyMap
@@ -81,7 +85,7 @@ func newTable() tableModel {
 	ti.CharLimit = 50
 	ti.Width = 50
 	ti.ShowSuggestions = false
-	return tableModel{keys: keys, tables: []customTable{*newCustomTable("Direct Packages"), *newCustomTable("Dependency Packages"), *newCustomTable("All Packages")}, search: ti}
+	return tableModel{keys: keys, tables: []customTable{*newCustomTable("Direct Packages"), *newCustomTable("Dependency Packages"), *newCustomTable("All Packages"), *newCustomTable("Orphan Packages")}, search: ti}
 }
 func (m tableModel) Init() tea.Cmd {
 	return func() tea.Msg { return TableInitEvent{} }
@@ -117,10 +121,22 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		pkgChan, err := backend.LoadPackages()
 		if err != nil {
 			slog.Error("could not load packages", "err", err)
-			os.Exit(1)
+			break
 		}
 		m.pkgStream = pkgChan
-		commands = append(commands, m.listen)
+		commands = append(commands, m.listen, NewLoadOrphans)
+
+	case LoadOrphans:
+		orphans, err := backend.GetOrphanPackages()
+		if err != nil {
+			slog.Error("could not load orphans", "err", err)
+			break
+		}
+
+		for _, pkg := range orphans {
+			row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
+			m.tables[3].addRow(row)
+		}
 
 	case DisplayResizeEvent:
 		for i := range m.tables {
@@ -260,11 +276,11 @@ func (m tableModel) tabsView() string {
 			tab := topLeftTab.Bold(true).
 				BorderStyle(lipgloss.ThickBorder()).
 				BorderForeground(selectedColor).
-				Render(v.label)
+				Render(v.label + "|" + strconv.Itoa(len(v.OriginalRows)))
 			tabs = append(tabs, tab)
 			continue
 		}
-		tab := topLeftTab.Render(v.label)
+		tab := topLeftTab.Render(v.label + "|" + strconv.Itoa(len(v.OriginalRows)))
 		tabs = append(tabs, tab)
 
 	}

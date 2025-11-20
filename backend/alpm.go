@@ -3,8 +3,10 @@
 package backend
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -141,4 +143,51 @@ func isAURPackage(pkgName string, syncDBs alpm.IDBList) bool {
 		return nil
 	})
 	return !found
+}
+func GetOrphanPackages() ([]Package, error) {
+	cmd := exec.Command("pacman", "-Qtdq")
+	output, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return []Package{}, nil
+		}
+		return nil, fmt.Errorf("failed to get orphans: %w", err)
+	}
+
+	h, err := alpm.Initialize("/", "/var/lib/pacman/")
+	if err != nil {
+		return nil, err
+	}
+	defer h.Release()
+
+	localDB, err := h.LocalDB()
+	if err != nil {
+		return nil, err
+	}
+
+	pinnedPkgs, _ := getPinnedPackages(h)
+
+	orphans := make([]Package, 0)
+	for name := range strings.SplitSeq(strings.TrimSpace(string(output)), "\n") {
+		if name == "" {
+			continue
+		}
+
+		pkg := localDB.Pkg(name)
+		if pkg == nil {
+			continue
+		}
+
+		orphans = append(orphans, Package{
+			Name:     pkg.Name(),
+			Version:  pkg.Version(),
+			Size:     pkg.ISize(),
+			DB:       pkg.DB().Name(),
+			Date:     pkg.InstallDate(),
+			IsDirect: false,
+			IsFrozen: pinnedPkgs[pkg.Name()],
+		})
+	}
+
+	return orphans, nil
 }

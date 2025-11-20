@@ -6,14 +6,15 @@ import (
 )
 
 type Package struct {
-	Name       string
-	Version    string
-	NewVersion string
-	Size       int64
-	DB         string
-	Date       time.Time
-	IsDirect   bool
-	IsFrozen   bool
+	Name         string
+	Version      string
+	NewVersion   string
+	Size         int64
+	DB           string
+	Date         time.Time
+	IsDirect     bool
+	IsFrozen     bool
+	Dependencies []string
 }
 
 func (p Package) FormatSize() string {

@@ -391,3 +391,73 @@ func getPinnedFormulae() map[string]bool {
 func Update() (func() error, chan OperationResult) {
 	return createNormalCmd("update", "brew", "update")
 }
+func GetOrphanPackages() ([]Package, error) {
+	cmd := exec.Command("brew", "autoremove", "--dry-run")
+	output, err := cmd.Output()
+	if err != nil {
+		return []Package{}, nil
+	}
+
+	cellarCmd := exec.Command("brew", "--cellar")
+	cellarOutput, err := cellarCmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cellar path: %w", err)
+	}
+	cellarPath := strings.TrimSpace(string(cellarOutput))
+
+	pinnedFormulae := getPinnedFormulae()
+	orphans := make([]Package, 0)
+
+	for line := range strings.SplitSeq(string(output), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.Contains(line, "Would remove:") {
+			if strings.HasPrefix(line, "==>") {
+				continue
+			}
+			if line == "" {
+				continue
+			}
+
+			pkgName := strings.Fields(line)[0]
+			if pkgName == "" {
+				continue
+			}
+
+			pkgPath := filepath.Join(cellarPath, pkgName)
+			if _, err := os.Stat(pkgPath); err != nil {
+				continue
+			}
+
+			installedVersion, _ := getInstalledVersion(cellarPath, pkgName)
+			verPath := filepath.Join(pkgPath, installedVersion)
+
+			receiptPath := filepath.Join(verPath, "INSTALL_RECEIPT.json")
+			receiptData, _ := os.ReadFile(receiptPath)
+
+			var installDate time.Time
+			var receipt installReceipt
+
+			if json.Unmarshal(receiptData, &receipt) == nil && receipt.Time > 0 {
+				installDate = time.Unix(receipt.Time, 0)
+			}
+
+			if installDate.IsZero() {
+				installDate = time.Now()
+			}
+
+			size := calculateSize(verPath)
+
+			orphans = append(orphans, Package{
+				Name:     pkgName,
+				Version:  installedVersion,
+				Size:     size,
+				Date:     installDate,
+				IsDirect: false,
+				IsFrozen: pinnedFormulae[pkgName],
+				DB:       "Homebrew",
+			})
+		}
+	}
+
+	return orphans, nil
+}

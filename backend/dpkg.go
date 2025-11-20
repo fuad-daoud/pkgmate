@@ -200,3 +200,82 @@ func Update() (func() error, chan OperationResult) {
 		return err
 	}, resultChan
 }
+func GetOrphanPackages() ([]Package, error) {
+	cmd := exec.Command("apt-get", "--simulate", "autoremove")
+	output, err := cmd.Output()
+	if err != nil {
+		return []Package{}, nil // No orphans or apt-get not available
+	}
+
+	heldPkgs := getHeldPackages()
+	
+	orphans := make([]Package, 0)
+	
+	// Parse output like: "Remv package-name [version]"
+	for line := range strings.SplitSeq(string(output), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "Remv ") {
+			continue
+		}
+		
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		
+		pkgName := fields[1]
+		
+		// Get package details from dpkg status
+		data, err := os.ReadFile("/var/lib/dpkg/status")
+		if err != nil {
+			continue
+		}
+		
+		paragraphs := strings.SplitSeq(string(data), "\n\n")
+		for para := range paragraphs {
+			if !strings.Contains(para, "Package: "+pkgName) {
+				continue
+			}
+			
+			var pkg Package
+			pkg.Name = pkgName
+			pkg.IsDirect = false
+			pkg.DB = "dpkg"
+			pkg.IsFrozen = heldPkgs[pkgName]
+			
+			lines := strings.SplitSeq(para, "\n")
+			for line := range lines {
+				if strings.HasPrefix(line, " ") {
+					continue
+				}
+				
+				parts := strings.SplitN(line, ": ", 2)
+				if len(parts) != 2 {
+					continue
+				}
+				
+				key := parts[0]
+				value := parts[1]
+				
+				switch key {
+				case "Version":
+					pkg.Version = value
+				case "Installed-Size":
+					if size, err := strconv.ParseInt(value, 10, 64); err == nil {
+						pkg.Size = size * 1024
+					}
+				}
+			}
+			
+			listFile := fmt.Sprintf("/var/lib/dpkg/info/%s.list", pkgName)
+			if info, err := os.Stat(listFile); err == nil {
+				pkg.Date = info.ModTime()
+			}
+			
+			orphans = append(orphans, pkg)
+			break
+		}
+	}
+	
+	return orphans, nil
+}
