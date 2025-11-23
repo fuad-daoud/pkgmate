@@ -65,7 +65,7 @@ func (m displayModel) Update(msg tea.Msg) (displayModel, tea.Cmd) {
 		commands = append(commands, m.newDisplayResizeEvent)
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, key.NewBinding(key.WithKeys("ctrl+k"))):
+		case key.Matches(msg, key.NewBinding(key.WithKeys("ctrl+k", "ctrl+p"))):
 			m.commandPalette = m.commandPalette.Toggle()
 			commands = append(commands, m.newDisplayResizeEvent)
 		}

@@ -91,7 +91,7 @@ func (m commandPaletteModel) Update(msg tea.Msg) (commandPaletteModel, tea.Cmd) 
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "esc", "ctrl+p":
+		case "esc":
 			m.visible = false
 		case "up", "k":
 			if m.cursor > 0 {
