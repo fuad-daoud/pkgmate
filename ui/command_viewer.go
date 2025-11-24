@@ -20,7 +20,7 @@ func NewUpdateCommandView() commandExecModel {
 	return newCommandExecView(
 		"System Update",
 		"pkgmate-update.log",
-		backend.Update,
+		backend.UpdateAll,
 	)
 }
 

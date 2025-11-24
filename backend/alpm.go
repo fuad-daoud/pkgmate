@@ -14,9 +14,27 @@ import (
 	"github.com/Jguer/go-alpm/v2"
 )
 
-const PACKAGES_CACHE_KEY = "cache_key"
+type AlpmBackend struct{}
 
-func LoadPackages() (chan []Package, error) {
+func init() {
+	RegisterBackend(&AlpmBackend{})
+}
+
+func (a *AlpmBackend) Name() string {
+	return "alpm"
+}
+
+func (a *AlpmBackend) IsAvailable() bool {
+	if _, err := os.Stat("/var/lib/pacman/"); err != nil {
+		return false
+	}
+	if _, err := exec.LookPath("pacman"); err != nil {
+		return false
+	}
+	return true
+}
+
+func (a *AlpmBackend) LoadPackages() (chan []Package, error) {
 	var wg sync.WaitGroup
 	pkgsChan := make(chan []Package, 2)
 	h, err := alpm.Initialize("/", "/var/lib/pacman/")
@@ -98,53 +116,12 @@ func LoadPackages() (chan []Package, error) {
 
 	return pkgsChan, nil
 }
-func getPinnedPackages(h *alpm.Handle) (map[string]bool, error) {
-	pinned := make(map[string]bool)
 
-	ignorePkgs, err := h.IgnorePkgs()
-	if err != nil {
-		return pinned, err
-	}
-	s := ignorePkgs.Slice()
-	for _, pkg := range s {
-		pinned[pkg] = true
-	}
-	data, err := os.ReadFile("/etc/pacman.conf")
-	if err != nil {
-		return pinned, err
-	}
-
-	for line := range strings.SplitSeq(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "IgnorePkg") && strings.Contains(line, "=") {
-			parts := strings.SplitN(line, "=", 2)
-			if len(parts) == 2 {
-				pkgs := strings.FieldsSeq(strings.TrimSpace(parts[1]))
-				for pkg := range pkgs {
-					pinned[pkg] = true
-				}
-			}
-		}
-	}
-
-	return pinned, nil
+func (a *AlpmBackend) Update() (func() error, chan OperationResult) {
+	return CreatePrivilegedCmd(a.Name()+"-update", "pacman", "-Syy", "--noconfirm")
 }
 
-func Update() (func() error, chan OperationResult) {
-	return CreatePrivilegedCmd("update", "pacman", "-Syy", "--noconfirm")
-}
-
-func isAURPackage(pkgName string, syncDBs alpm.IDBList) bool {
-	found := false
-	syncDBs.ForEach(func(db alpm.IDB) error {
-		if db.Pkg(pkgName) != nil {
-			found = true
-		}
-		return nil
-	})
-	return !found
-}
-func GetOrphanPackages() ([]Package, error) {
+func (a *AlpmBackend) GetOrphanPackages() ([]Package, error) {
 	cmd := exec.Command("pacman", "-Qtdq")
 	output, err := cmd.Output()
 	if err != nil {
@@ -190,4 +167,47 @@ func GetOrphanPackages() ([]Package, error) {
 	}
 
 	return orphans, nil
+}
+
+func getPinnedPackages(h *alpm.Handle) (map[string]bool, error) {
+	pinned := make(map[string]bool)
+
+	ignorePkgs, err := h.IgnorePkgs()
+	if err != nil {
+		return pinned, err
+	}
+	s := ignorePkgs.Slice()
+	for _, pkg := range s {
+		pinned[pkg] = true
+	}
+	data, err := os.ReadFile("/etc/pacman.conf")
+	if err != nil {
+		return pinned, err
+	}
+
+	for line := range strings.SplitSeq(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "IgnorePkg") && strings.Contains(line, "=") {
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				pkgs := strings.FieldsSeq(strings.TrimSpace(parts[1]))
+				for pkg := range pkgs {
+					pinned[pkg] = true
+				}
+			}
+		}
+	}
+
+	return pinned, nil
+}
+
+func isAURPackage(pkgName string, syncDBs alpm.IDBList) bool {
+	found := false
+	syncDBs.ForEach(func(db alpm.IDB) error {
+		if db.Pkg(pkgName) != nil {
+			found = true
+		}
+		return nil
+	})
+	return !found
 }

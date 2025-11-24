@@ -22,9 +22,13 @@ const (
 
 type TableInitEvent struct{}
 type LoadOrphans struct{}
+type LoadPackages struct{}
 
 func NewLoadOrphans() tea.Msg {
 	return LoadOrphans{}
+}
+func NewLoadPackages() tea.Msg {
+	return LoadPackages{}
 }
 
 type tableKeys struct {
@@ -59,6 +63,7 @@ type tableModel struct {
 	lastCursor   int
 	activeTable  int
 	pkgStream    chan []backend.Package
+	orphanStream chan []backend.Package
 }
 
 func (m *tableModel) table() *customTable {
@@ -98,6 +103,11 @@ type PackageStreamMsg struct {
 	pkgs []backend.Package
 }
 
+type OrphanStreamMsg struct {
+	done bool
+	pkgs []backend.Package
+}
+
 func (m tableModel) listen() tea.Msg {
 	data, ok := <-m.pkgStream
 	if !ok {
@@ -105,6 +115,14 @@ func (m tableModel) listen() tea.Msg {
 		return PackageStreamMsg{done: true}
 	}
 	return PackageStreamMsg{pkgs: data}
+}
+func (m tableModel) listenOrphans() tea.Msg {
+	data, ok := <-m.orphanStream
+	if !ok {
+		slog.Info("orphan channel is closed")
+		return OrphanStreamMsg{done: true}
+	}
+	return OrphanStreamMsg{pkgs: data}
 }
 
 func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -120,25 +138,25 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for i := range m.tables {
 			m.tables[i].Columns = columns
 		}
-		pkgChan, err := backend.LoadPackages()
+		commands = append(commands, NewLoadPackages, NewLoadOrphans)
+	case LoadPackages:
+		pkgChan, err := backend.LoadAllPackages()
 		if err != nil {
 			slog.Error("could not load packages", "err", err)
 			break
 		}
 		m.pkgStream = pkgChan
-		commands = append(commands, m.listen, NewLoadOrphans)
+		commands = append(commands, m.listen)
 
 	case LoadOrphans:
-		orphans, err := backend.GetOrphanPackages()
+		orphanStream, err := backend.GetAllOrphanPackages()
 		if err != nil {
 			slog.Error("could not load orphans", "err", err)
 			break
 		}
 
-		for _, pkg := range orphans {
-			row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
-			m.tables[3].addRow(row)
-		}
+		m.orphanStream = orphanStream
+		commands = append(commands, m.listenOrphans)
 
 	case DisplayResizeEvent:
 		for i := range m.tables {
@@ -147,6 +165,12 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case PackageStreamMsg:
+		if len(msg.pkgs) > 0 {
+			for i := range m.tables[:3] {
+				m.tables[i].SetLoading(false)
+			}
+		}
+
 		pkgs := msg.pkgs
 		for _, pkg := range pkgs {
 			row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
@@ -177,6 +201,22 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if !msg.done {
 			commands = append(commands, m.listen)
+		}
+	case OrphanStreamMsg:
+
+		for _, pkg := range msg.pkgs {
+			row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
+			m.tables[3].addRow(row)
+			if pkg.NewVersion != "" {
+				m.tables[3].addStyleRow(pkg.Name, updateAvailableRow)
+			}
+			if pkg.IsFrozen {
+				m.tables[3].addStyleRow(pkg.Name, frozenRowStyle)
+			}
+		}
+
+		if !msg.done {
+			commands = append(commands, m.listenOrphans)
 		}
 	case tea.KeyMsg:
 		switch {
