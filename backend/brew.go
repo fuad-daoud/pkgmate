@@ -248,8 +248,18 @@ func (b *BrewBackend) GetOrphanPackages() ([]Package, error) {
 			installedVersion, _ := getInstalledVersion(cellarPath, pkgName)
 			verPath := filepath.Join(pkgPath, installedVersion)
 
-			receiptPath := filepath.Join(verPath, "INSTALL_RECEIPT.json")
-			receiptData, _ := os.ReadFile(receiptPath)
+			root, err := os.OpenRoot(verPath)
+			if err != nil {
+				slog.Warn("could not open folder", "verPath", verPath)
+				continue
+			}
+			receiptFile := "INSTALL_RECEIPT.json"
+			receiptData, err := root.ReadFile(receiptFile)
+
+			if err != nil {
+				slog.Warn("could not open file", "receipt", receiptFile)
+				continue
+			}
 
 			var installDate time.Time
 			var receipt installReceipt
