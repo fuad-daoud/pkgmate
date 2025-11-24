@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -46,6 +47,8 @@ type customTable struct {
 	Height                int
 	Width                 int
 	focused               bool
+	loading               bool
+	spinner               spinner.Model
 	headerStyle           lipgloss.Style
 	cursorStyler          Styler
 	cellStyle             lipgloss.Style
@@ -64,6 +67,9 @@ func newCustomTable(label string) *customTable {
 		last:     key.NewBinding(key.WithKeys("end", "G"), key.WithHelp("end/G", "move to last")),
 		choose:   key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "select row"), key.WithDisabled()),
 	}
+
+	s := spinner.New(spinner.WithSpinner(spinner.Dot))
+
 	return &customTable{
 		label:                 label,
 		keys:                  &keys,
@@ -74,6 +80,8 @@ func newCustomTable(label string) *customTable {
 		cursor:                0,
 		offset:                0,
 		focused:               true,
+		loading:               true,
+		spinner:               s,
 		headerStyle:           lipgloss.NewStyle().Bold(true).Padding(0, 1).BorderStyle(lipgloss.NormalBorder()).BorderBottom(true),
 		cursorStyler:          cursorRowStyler,
 		cellStyle:             lipgloss.NewStyle().Padding(0, 1),
@@ -83,6 +91,14 @@ func newCustomTable(label string) *customTable {
 		cursorAndSelectStyler: noStyler,
 		selectedRows:          map[string]bool{},
 	}
+}
+
+func (m *customTable) Init() tea.Cmd {
+	return m.spinner.Tick
+}
+
+func (m *customTable) SetLoading(loading bool) {
+	m.loading = loading
 }
 
 func (m *customTable) Blur() {
@@ -122,15 +138,27 @@ func (m *customTable) ExitSelectMode() {
 }
 
 func (m customTable) Update(msg tea.Msg) (customTable, tea.Cmd) {
-	if !m.focused {
-		return m, nil
-	}
 
-	if len(m.Rows) == 0 {
+	if !m.focused {
+		if m.loading {
+			var cmd tea.Cmd
+			m.spinner, cmd = m.spinner.Update(msg)
+			if m.loading {
+				return m, cmd
+			}
+		}
 		return m, nil
 	}
+	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		if m.loading {
+			cmds = append(cmds, cmd)
+		}
+
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.up):
@@ -161,8 +189,9 @@ func (m customTable) Update(msg tea.Msg) (customTable, tea.Cmd) {
 		}
 	}
 
-	return m, nil
+	return m, tea.Batch(cmds...)
 }
+
 func (m customTable) addStyleRow(row string, style lipgloss.Style) {
 	m.StyledRows[row] = style
 	m.OriginalStyledRows[row] = style
@@ -201,7 +230,27 @@ func (m *customTable) View() string {
 	if len(m.Columns) == 0 {
 		return ""
 	}
+
 	if len(m.Rows) == 0 {
+		if m.loading {
+			// Show spinner while loading
+			loadingStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#888888"))
+
+			content := lipgloss.JoinHorizontal(
+				lipgloss.Left,
+				m.spinner.View(),
+				loadingStyle.Render(" Loading packages..."),
+			)
+
+			return lipgloss.Place(
+				m.Width,
+				m.Height+1,
+				lipgloss.Center,
+				lipgloss.Center,
+				content,
+			)
+		}
 		emptyStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#888888")).
 			Italic(true)

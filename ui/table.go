@@ -94,6 +94,7 @@ func newTable() tableModel {
 	ti.ShowSuggestions = false
 	return tableModel{keys: keys, tables: []customTable{*newCustomTable("Direct Packages"), *newCustomTable("Dependency Packages"), *newCustomTable("All Packages"), *newCustomTable("Orphan Packages")}, search: ti}
 }
+
 func (m tableModel) Init() tea.Cmd {
 	return func() tea.Msg { return TableInitEvent{} }
 }
@@ -135,10 +136,13 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			"Size",
 			"Installed",
 		}
+		var initCmds []tea.Cmd
 		for i := range m.tables {
 			m.tables[i].Columns = columns
+			initCmds = append(initCmds, m.tables[i].Init())
 		}
 		commands = append(commands, NewLoadPackages, NewLoadOrphans)
+		commands = append(commands, initCmds...)
 	case LoadPackages:
 		pkgChan, err := backend.LoadAllPackages()
 		if err != nil {
@@ -154,7 +158,6 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			slog.Error("could not load orphans", "err", err)
 			break
 		}
-
 		m.orphanStream = orphanStream
 		commands = append(commands, m.listenOrphans)
 
@@ -203,6 +206,9 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			commands = append(commands, m.listen)
 		}
 	case OrphanStreamMsg:
+		if len(msg.pkgs) > 0 {
+			m.tables[3].SetLoading(false)
+		}
 
 		for _, pkg := range msg.pkgs {
 			row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
@@ -244,17 +250,20 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	}
 	var newCmd tea.Cmd
-	m.tables[m.activeTable], newCmd = m.table().Update(msg)
+	for index, table := range m.tables {
+		m.tables[index], newCmd = table.Update(msg)
+		commands = append(commands, newCmd)
+	}
 	if m.lastCursor != m.table().cursor {
 		m.lastCursor = m.table().cursor
 	}
-	commands = append(commands, newCmd)
 
 	m, newCmd = m.footerUpdates(msg)
 	commands = append(commands, newCmd)
 
 	return m, tea.Batch(commands...)
 }
+
 func (m tableModel) footerUpdates(msg tea.Msg) (tableModel, tea.Cmd) {
 	commands := make([]tea.Cmd, 0)
 	switch msg := msg.(type) {
