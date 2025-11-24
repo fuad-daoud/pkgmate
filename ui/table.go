@@ -31,6 +31,7 @@ type tableKeys struct {
 	customTableKey *customTableKeyMap
 
 	tab            key.Binding
+	prevTab        key.Binding
 	remove         key.Binding
 	exitSelectMode key.Binding
 	search         key.Binding
@@ -76,7 +77,8 @@ func newTable() tableModel {
 		search:         key.NewBinding(key.WithKeys("/", "ctrl+f"), key.WithHelp("//ctrl+f", "focus search box")),
 		reset:          key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "reset search"), key.WithDisabled()),
 		submit:         key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "submit search"), key.WithDisabled()),
-		tab:            key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "shift through tabs")),
+		tab:            key.NewBinding(key.WithKeys("tab", "ctrl+l", "ctrl+right"), key.WithHelp("tab", "shift through tabs")),
+		prevTab:        key.NewBinding(key.WithKeys("shift+tab", "ctrl+h", "ctrl+left"), key.WithHelp("shift+tab", "previous tab")),
 	}
 
 	ti := textinput.New()
@@ -186,6 +188,13 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.keys.exitSelectMode.SetEnabled(false)
 			m.keys.remove.SetEnabled(true)
 			m.table().ExitSelectMode()
+
+		case key.Matches(msg, m.keys.prevTab):
+			m.keys.exitSelectMode.SetEnabled(false)
+			m.table().ExitSelectMode()
+			m.activeTable -= 1
+			m.activeTable += len(m.tables)
+			m.activeTable %= len(m.tables)
 		case key.Matches(msg, m.keys.tab):
 			m.keys.exitSelectMode.SetEnabled(false)
 			m.table().ExitSelectMode()
