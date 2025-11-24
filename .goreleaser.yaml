@@ -22,10 +22,9 @@ builds:
       - -trimpath
       - -buildvcs=true
 
-  - id: pkgmate-debian
+  - id: pkgmate-linux
     main: ./main/main.go
     binary: pkgmate
-    tags: [dpkg]
     goos: [linux]
     goarch: [amd64, arm64]
     env: [CGO_ENABLED=0]
@@ -39,27 +38,9 @@ builds:
       - -trimpath
       - -buildvcs=true
 
-  - id: pkgmate-brew-linux
+  - id: pkgmate-macos
     main: ./main/main.go
     binary: pkgmate
-    tags: [brew]
-    goos: [linux]
-    goarch: [amd64, arm64]
-    env: [CGO_ENABLED=0]
-    ldflags:
-      - -s -w
-      - -X pkgmate/ui.Version={{.Version}}
-      - -X pkgmate/ui.BuildTime={{.Date}}
-      - -X pkgmate/ui.GitCommit={{.FullCommit}}
-      - -buildid=
-    flags:
-      - -trimpath
-      - -buildvcs=true
-
-  - id: pkgmate-brew-macos
-    main: ./main/main.go
-    binary: pkgmate
-    tags: [brew]
     goos: [darwin]
     goarch: [amd64, arm64]
     env: [CGO_ENABLED=0]
@@ -76,7 +57,7 @@ builds:
 # Create universal binaries for macOS (combines amd64 and arm64)
 universal_binaries:
   - id: pkgmate-universal
-    ids: [pkgmate-brew-macos]
+    ids: [pkgmate-macos]
     replace: true
     name_template: "pkgmate"
 
@@ -86,20 +67,15 @@ archives:
     formats: ["tar.gz"]
     name_template: "{{ .ProjectName }}-arch-{{ .Os }}-{{ .Arch }}"
 
-  - id: debian-archive
-    ids: [pkgmate-debian]
+  - id: linux-archive
+    ids: [pkgmate-linux]
     formats: ["tar.gz"]
-    name_template: "{{ .ProjectName }}-debian-{{ .Os }}-{{ .Arch }}"
+    name_template: "{{ .ProjectName }}-linux-{{ .Os }}-{{ .Arch }}"
 
-  - id: brew-archive-linux
-    ids: [pkgmate-brew-linux]
-    formats: ["tar.gz"]
-    name_template: "{{ .ProjectName }}-brew-{{ .Os }}-{{ .Arch }}"
-
-  - id: brew-archive-macos
+  - id: macos-archive
     ids: [pkgmate-universal]
     formats: ["tar.gz"]
-    name_template: "{{ .ProjectName }}-brew-{{ .Os }}-universal"
+    name_template: "{{ .ProjectName }}-{{ .Os }}-universal"
 
 signs:
   # GPG signing for all archives (existing)
@@ -173,7 +149,7 @@ aurs:
 nfpms:
   - id: pkgmate-deb
     package_name: pkgmate
-    ids: [pkgmate-debian]
+    ids: [pkgmate-linux]
     vendor: Fuad Daoud
     homepage: https://github.com/fuad-daoud/pkgmate
     maintainer: Fuad Daoud <aur@fuad-daoud.com>
@@ -184,7 +160,7 @@ nfpms:
     bindir: /usr/bin
 
 homebrew_casks:
-  - ids: [brew-archive-macos]
+  - ids: [macos-archive]
     name: pkgmate
     homepage: "https://github.com/fuad-daoud/pkgmate"
     description: "TUI application to manage your dependencies"

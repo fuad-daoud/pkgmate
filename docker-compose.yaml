@@ -9,14 +9,14 @@ services:
   debian:
     image: debian:latest
     volumes:
-      - ./dist/pkgmate-debian_linux_amd64_v1/pkgmate:/pkgmate:ro
+      - ./dist/pkgmate-linux_linux_amd64_v1/pkgmate:/pkgmate:ro
     stdin_open: true
     tty: true
 
   brew:
     image: homebrew/brew:latest
     volumes:
-      - ./dist/pkgmate-brew_darwin_amd64_v1/pkgmate:/dist:ro
+      - ./dist/pkgmate-linux_linux_amd64_v1/pkgmate:/pkgmate:ro
     stdin_open: true
     tty: true
     environment:
