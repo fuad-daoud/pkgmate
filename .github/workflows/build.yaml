@@ -90,18 +90,18 @@ jobs:
           path: dist/*arch*.tar.gz
           retention-days: 7
 
-      - name: Upload Linux artifacts (Debian)
+      - name: Upload Linux artifacts (Universal)
         uses: actions/upload-artifact@v4
         with:
-          name: pkgmate-debian-${{ github.sha }}
-          path: dist/*debian*.tar.gz
+          name: pkgmate-linux-${{ github.sha }}
+          path: dist/*linux*.tar.gz
           retention-days: 7
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pkgmate-brew-${{ github.sha }}
-          path: dist/*brew*.tar.gz
+          name: pkgmate-macos-${{ github.sha }}
+          path: dist/*darwin*.tar.gz
           retention-days: 7
 
       - name: Upload all build artifacts
