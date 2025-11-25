@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -32,6 +33,7 @@ type model struct {
 	help           helpModel
 	spin           spinner.Model
 	showSpinner    bool
+	shuttingDown   bool
 }
 
 func InitialModel() model {
@@ -54,8 +56,15 @@ func (m model) Init() tea.Cmd {
 	return func() tea.Msg { return ProgramInitEvent{} }
 }
 
+type ShutdownDelayMsg struct{}
+
+func shutdownDelay() tea.Cmd {
+	return tea.Tick(600*time.Millisecond, func(t time.Time) tea.Msg {
+		return ShutdownDelayMsg{}
+	})
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// slog.Info("New event", "type", reflect.TypeOf(msg))
 	commands := make([]tea.Cmd, 0)
 	switch msg := msg.(type) {
 
@@ -66,6 +75,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showSpinner = true
 			commands = append(commands, m.spin.Tick)
 		}
+	case ShutdownDelayMsg:
+		return m, tea.Quit
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spin, cmd = m.spin.Update(msg)
@@ -79,7 +90,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.quit):
-			return m, tea.Quit
+			m.shuttingDown = true
+			return m, shutdownDelay()
 		}
 	}
 
@@ -91,6 +103,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	if m.shuttingDown {
+		shutdownMsg := lipgloss.NewStyle().
+			Bold(true).
+			Render("Shutdown Successfully ✅")
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, shutdownMsg)
+	}
 	if m.showSpinner {
 		content := fmt.Sprintf("%s Terminal Width (%d) less the minimum width %d", m.spin.View(), m.width, 70)
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
