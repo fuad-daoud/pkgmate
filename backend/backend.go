@@ -2,7 +2,9 @@ package backend
 
 import (
 	"fmt"
+	"io/fs"
 	"log/slog"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -128,4 +130,24 @@ func GetAllOrphanPackages() (chan []Package, error) {
 	}()
 
 	return pkgsChan, nil
+}
+
+func calculateSize(path string) int64 {
+	var size int64
+	err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return fs.SkipDir
+		}
+		if !d.IsDir() {
+			if info, err := d.Info(); err == nil {
+				size += info.Size()
+			}
+
+		}
+		return nil
+	})
+	if err != nil {
+		slog.Warn("could not calculate size of path", "path", path)
+	}
+	return size
 }

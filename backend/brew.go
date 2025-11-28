@@ -3,7 +3,6 @@ package backend
 import (
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -320,25 +319,6 @@ func getNewestVersion(pkgPath string) (string, error) {
 	return newest, nil
 }
 
-func calculateSize(path string) int64 {
-	var size int64
-	err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return fs.SkipDir
-		}
-		if !d.IsDir() {
-			if info, err := d.Info(); err == nil {
-				size += info.Size()
-			}
-
-		}
-		return nil
-	})
-	if err != nil {
-		slog.Warn("could not calculate size of path", "path", path)
-	}
-	return size
-}
 
 func getCaskSize(caskroomPath, caskName, version string) int64 {
 	caskPath := filepath.Join(caskroomPath, caskName, version)
