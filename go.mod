@@ -3,7 +3,6 @@ module pkgmate
 go 1.25.2
 
 require (
-	github.com/Jguer/go-alpm/v2 v2.2.2
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0

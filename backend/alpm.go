@@ -1,5 +1,3 @@
-//go:build arch
-
 package backend
 
 import (
@@ -7,24 +5,24 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/Jguer/go-alpm/v2"
 )
 
-type AlpmBackend struct{}
+type PacmanBackend struct{}
 
 func init() {
-	RegisterBackend(&AlpmBackend{})
+	RegisterBackend(&PacmanBackend{})
 }
 
-func (a *AlpmBackend) Name() string {
-	return "alpm"
+func (p *PacmanBackend) Name() string {
+	return "pacman"
 }
 
-func (a *AlpmBackend) IsAvailable() bool {
+func (p *PacmanBackend) IsAvailable() bool {
 	if _, err := os.Stat("/var/lib/pacman/"); err != nil {
 		return false
 	}
@@ -34,94 +32,70 @@ func (a *AlpmBackend) IsAvailable() bool {
 	return true
 }
 
-func (a *AlpmBackend) LoadPackages() (chan []Package, error) {
+func (p *PacmanBackend) LoadPackages() (chan []Package, error) {
+	start := time.Now()
+
 	var wg sync.WaitGroup
 	pkgsChan := make(chan []Package, 2)
-	h, err := alpm.Initialize("/", "/var/lib/pacman/")
-	if err != nil {
-		return nil, err
-	}
-	start := time.Now()
+
 	wg.Go(func() {
-
-		if _, err := h.RegisterSyncDB("core", 0); err != nil {
-			slog.Warn("Failed to register core", "err", err)
-		}
-		if _, err := h.RegisterSyncDB("extra", 0); err != nil {
-			slog.Warn("Failed to register extra", "err", err)
-		}
-		if _, err := h.RegisterSyncDB("multilib", 0); err != nil {
-			slog.Warn("Failed to register multilib", "err", err)
-		}
-
-		syncDBs, err := h.SyncDBs()
+		cmd := exec.Command("pacman", "-Qi")
+		output, err := cmd.Output()
 		if err != nil {
+			slog.Error("Failed to get package info", "err", err)
 			return
 		}
 
-		localDB, err := h.LocalDB()
-		if err != nil {
-			return
-		}
-		pkgs := localDB.PkgCache().Slice()
-		aurPackages := make([]Package, 0)
-		aurPackagesNames := make([]string, 0)
-		packages := make([]Package, 0)
+		explicitPkgs := getExplicitPackages()
+		pinnedPkgs := getPinnedPackages()
+		upgradable := getUpgradablePackages()
+		foreignPkgs := getForeignPackages()
 
-		pinnedPkgs, err := getPinnedPackages(h)
-		if err != nil {
-			slog.Warn("could not get forzen packages", "err", err)
-		}
-		for _, p := range pkgs {
-			pkg := Package{
-				Name:     p.Name(),
-				Version:  p.Version(),
-				Size:     p.ISize(),
-				DB:       p.DB().Name(),
-				Date:     p.InstallDate(),
-				IsFrozen: pinnedPkgs[p.Name()],
-				IsDirect: p.Reason() == alpm.PkgReasonExplicit,
-			}
+		packages := parsePackageInfo(string(output), explicitPkgs, pinnedPkgs, upgradable, foreignPkgs)
+		regularPkgs := make([]Package, 0)
+		aurPkgs := make([]Package, 0)
+		aurPkgNames := make([]string, 0)
 
-			if newPkg := p.SyncNewVersion(syncDBs); newPkg != nil {
-				pkg.NewVersion = newPkg.Version()
-			} else if isAURPackage(p.Name(), syncDBs) {
-				pkg.DB = "AUR"
-				aurPackages = append(aurPackages, pkg)
-				aurPackagesNames = append(aurPackagesNames, pkg.Name)
-				continue
+		for _, pkg := range packages {
+			if pkg.DB == "AUR" {
+				aurPkgs = append(aurPkgs, pkg)
+				aurPkgNames = append(aurPkgNames, pkg.Name)
+			} else {
+				regularPkgs = append(regularPkgs, pkg)
 			}
-			packages = append(packages, pkg)
 		}
-		wg.Go(func() { pkgsChan <- packages })
-		newVersions, err := CheckAURVersions(aurPackagesNames)
+
+		wg.Go(func() { pkgsChan <- regularPkgs })
+
+		// Check AUR versions
+		newVersions, err := CheckAURVersions(aurPkgNames)
 		if err != nil {
-			slog.Warn("Could not update aur packages")
+			slog.Warn("Could not check AUR versions", "err", err)
 		} else {
-			for i, pkg := range aurPackages {
-				if aurPackages[i].Version != newVersions[pkg.Name] {
-					aurPackages[i].NewVersion = newVersions[pkg.Name]
+			for i := range aurPkgs {
+				if newVer, ok := newVersions[aurPkgs[i].Name]; ok && newVer != aurPkgs[i].Version {
+					aurPkgs[i].NewVersion = newVer
 				}
 			}
 		}
 
-		wg.Go(func() { pkgsChan <- aurPackages })
+		wg.Go(func() { pkgsChan <- aurPkgs })
 	})
+
 	go func() {
-		defer h.Release()
 		wg.Wait()
 		close(pkgsChan)
-		slog.Info("time to map all pacakges and sync with aur", "time", time.Since(start))
+		slog.Info("time to map all packages and sync with aur", "time", time.Since(start))
 	}()
 
 	return pkgsChan, nil
 }
 
-func (a *AlpmBackend) Update() (func() error, chan OperationResult) {
-	return CreatePrivilegedCmd(a.Name()+"-update", "pacman", "-Syy", "--noconfirm")
+func (p *PacmanBackend) Update() (func() error, chan OperationResult) {
+	return CreatePrivilegedCmd(p.Name()+"-update", "pacman", "-Syy", "--noconfirm")
 }
 
-func (a *AlpmBackend) GetOrphanPackages() ([]Package, error) {
+func (p *PacmanBackend) GetOrphanPackages() ([]Package, error) {
 	cmd := exec.Command("pacman", "-Qtdq")
 	output, err := cmd.Output()
 	if err != nil {
@@ -131,58 +105,55 @@ func (a *AlpmBackend) GetOrphanPackages() ([]Package, error) {
 		return nil, fmt.Errorf("failed to get orphans: %w", err)
 	}
 
-	h, err := alpm.Initialize("/", "/var/lib/pacman/")
+	orphanNames := strings.Fields(strings.TrimSpace(string(output)))
+	if len(orphanNames) == 0 {
+		return []Package{}, nil
+	}
+
+	// Get detailed info for orphan packages
+	args := append([]string{"-Qi"}, orphanNames...)
+	cmd = exec.Command("pacman", args...)
+	output, err = cmd.Output()
 	if err != nil {
-		return nil, err
-	}
-	defer h.Release()
-
-	localDB, err := h.LocalDB()
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get orphan details: %w", err)
 	}
 
-	pinnedPkgs, _ := getPinnedPackages(h)
+	pinnedPkgs := getPinnedPackages()
+	packages := parsePackageInfo(string(output), make(map[string]bool), pinnedPkgs, make(map[string]string), make(map[string]bool))
 
-	orphans := make([]Package, 0)
-	for name := range strings.SplitSeq(strings.TrimSpace(string(output)), "\n") {
-		if name == "" {
-			continue
-		}
-
-		pkg := localDB.Pkg(name)
-		if pkg == nil {
-			continue
-		}
-
-		orphans = append(orphans, Package{
-			Name:     pkg.Name(),
-			Version:  pkg.Version(),
-			Size:     pkg.ISize(),
-			DB:       pkg.DB().Name(),
-			Date:     pkg.InstallDate(),
-			IsDirect: false,
-			IsFrozen: pinnedPkgs[pkg.Name()],
-		})
+	// Mark all as dependencies
+	for i := range packages {
+		packages[i].IsDirect = false
 	}
 
-	return orphans, nil
+	return packages, nil
 }
 
-func getPinnedPackages(h *alpm.Handle) (map[string]bool, error) {
+func getExplicitPackages() map[string]bool {
+	explicit := make(map[string]bool)
+
+	cmd := exec.Command("pacman", "-Qeq")
+	output, err := cmd.Output()
+	if err != nil {
+		slog.Warn("Failed to get explicit packages", "err", err)
+		return explicit
+	}
+
+	for name := range strings.SplitSeq(strings.TrimSpace(string(output)), "\n") {
+		if name != "" {
+			explicit[name] = true
+		}
+	}
+
+	return explicit
+}
+
+func getPinnedPackages() map[string]bool {
 	pinned := make(map[string]bool)
 
-	ignorePkgs, err := h.IgnorePkgs()
-	if err != nil {
-		return pinned, err
-	}
-	s := ignorePkgs.Slice()
-	for _, pkg := range s {
-		pinned[pkg] = true
-	}
 	data, err := os.ReadFile("/etc/pacman.conf")
 	if err != nil {
-		return pinned, err
+		return pinned
 	}
 
 	for line := range strings.SplitSeq(string(data), "\n") {
@@ -198,16 +169,172 @@ func getPinnedPackages(h *alpm.Handle) (map[string]bool, error) {
 		}
 	}
 
-	return pinned, nil
+	return pinned
 }
 
-func isAURPackage(pkgName string, syncDBs alpm.IDBList) bool {
-	found := false
-	syncDBs.ForEach(func(db alpm.IDB) error {
-		if db.Pkg(pkgName) != nil {
-			found = true
+func getUpgradablePackages() map[string]string {
+	upgradable := make(map[string]string)
+
+	cmd := exec.Command("pacman", "-Qu")
+	output, err := cmd.Output()
+	if err != nil {
+		// Exit code 1 means no updates available
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return upgradable
 		}
-		return nil
-	})
-	return !found
+		slog.Warn("Failed to check for upgradable packages", "err", err)
+		return upgradable
+	}
+
+	for line := range strings.SplitSeq(string(output), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 4 {
+			// Format: package_name old_version -> new_version
+			pkgName := fields[0]
+			newVersion := fields[3]
+			upgradable[pkgName] = newVersion
+		}
+	}
+
+	return upgradable
+}
+
+func getForeignPackages() map[string]bool {
+	foreign := make(map[string]bool)
+
+	cmd := exec.Command("pacman", "-Qmq")
+	output, err := cmd.Output()
+	if err != nil {
+		// Exit code 1 means no foreign packages
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return foreign
+		}
+		slog.Warn("Failed to get foreign packages", "err", err)
+		return foreign
+	}
+
+	for name := range strings.SplitSeq(strings.TrimSpace(string(output)), "\n") {
+		if name != "" {
+			foreign[name] = true
+		}
+	}
+
+	return foreign
+}
+
+func parsePackageInfo(output string, explicitPkgs, pinnedPkgs map[string]bool, upgradable map[string]string, foreignPkgs map[string]bool) []Package {
+	packages := make([]Package, 0)
+	paragraphs := strings.SplitSeq(output, "\n\n")
+
+	for para := range paragraphs {
+		if para == "" {
+			continue
+		}
+
+		var pkg Package
+		lines := strings.SplitSeq(para, "\n")
+
+		for line := range lines {
+			if strings.HasPrefix(line, " ") {
+				continue // Skip continuation lines
+			}
+
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) != 2 {
+				continue
+			}
+
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+
+			switch key {
+			case "Name":
+				pkg.Name = value
+			case "Version":
+				pkg.Version = value
+			case "Installed Size":
+				pkg.Size = parseSize(value)
+			case "Install Date":
+				pkg.Date = parseDate(value)
+			case "Install Reason":
+				pkg.IsDirect = value == "Explicitly installed"
+			case "Repository":
+				pkg.DB = value
+			}
+		}
+
+		if pkg.Name == "" {
+			continue
+		}
+
+		// Override IsDirect with explicit package list (more reliable)
+		pkg.IsDirect = explicitPkgs[pkg.Name]
+		pkg.IsFrozen = pinnedPkgs[pkg.Name]
+
+		// Check for updates
+		if newVer, ok := upgradable[pkg.Name]; ok {
+			pkg.NewVersion = newVer
+		}
+
+		// Check if AUR package
+		if foreignPkgs[pkg.Name] {
+			pkg.DB = "AUR"
+		}
+
+		// If no install date, try to get from filesystem
+		if pkg.Date.IsZero() {
+			pkgPath := filepath.Join("/var/lib/pacman/local", pkg.Name+"-"+pkg.Version)
+			if info, err := os.Stat(pkgPath); err == nil {
+				pkg.Date = info.ModTime()
+			}
+		}
+
+		packages = append(packages, pkg)
+	}
+
+	return packages
+}
+
+func parseSize(sizeStr string) int64 {
+	// Format examples: "123.45 KiB", "12.34 MiB", "1.23 GiB"
+	fields := strings.Fields(sizeStr)
+	if len(fields) < 2 {
+		return 0
+	}
+
+	value, err := strconv.ParseFloat(fields[0], 64)
+	if err != nil {
+		return 0
+	}
+
+	unit := fields[1]
+	switch unit {
+	case "B":
+		return int64(value)
+	case "KiB":
+		return int64(value * 1024)
+	case "MiB":
+		return int64(value * 1024 * 1024)
+	case "GiB":
+		return int64(value * 1024 * 1024 * 1024)
+	default:
+		return 0
+	}
+}
+
+func parseDate(dateStr string) time.Time {
+	// Format: "Mon 28 Nov 2024 10:30:45 AM UTC"
+	layouts := []string{
+		"Mon 02 Jan 2006 03:04:05 PM MST",
+		"Mon 2 Jan 2006 03:04:05 PM MST",
+		time.ANSIC,
+	}
+
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, dateStr); err == nil {
+			return t
+		}
+	}
+
+	return time.Now()
 }

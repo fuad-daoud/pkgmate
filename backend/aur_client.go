@@ -1,5 +1,3 @@
-//go:build arch
-
 package backend
 
 import (
