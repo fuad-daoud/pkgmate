@@ -5,23 +5,6 @@ before:
     - go mod tidy
 
 builds:
-  - id: pkgmate-arch
-    main: ./main/main.go
-    binary: pkgmate
-    tags: [arch]
-    goos: [linux]
-    goarch: [amd64]
-    env: [CGO_ENABLED=1]
-    ldflags:
-      - -s -w
-      - -X pkgmate/ui.Version={{.Version}}
-      - -X pkgmate/ui.BuildTime={{.Date}}
-      - -X pkgmate/ui.GitCommit={{.FullCommit}}
-      - -buildid=
-    flags:
-      - -trimpath
-      - -buildvcs=true
-
   - id: pkgmate-linux
     main: ./main/main.go
     binary: pkgmate
@@ -62,15 +45,10 @@ universal_binaries:
     name_template: "pkgmate"
 
 archives:
-  - id: arch-archive
-    ids: [pkgmate-arch]
-    formats: ["tar.gz"]
-    name_template: "{{ .ProjectName }}-arch-{{ .Os }}-{{ .Arch }}"
-
   - id: linux-archive
     ids: [pkgmate-linux]
     formats: ["tar.gz"]
-    name_template: "{{ .ProjectName }}-linux-{{ .Os }}-{{ .Arch }}"
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
 
   - id: macos-archive
     ids: [pkgmate-universal]
@@ -78,7 +56,7 @@ archives:
     name_template: "{{ .ProjectName }}-{{ .Os }}-universal"
 
 signs:
-  # GPG signing for all archives (existing)
+  # GPG signing for all archives
   - id: gpg-sign
     cmd: gpg
     args:
@@ -132,7 +110,7 @@ changelog:
 
 aurs:
   - name: pkgmate-bin
-    ids: [arch-archive]
+    ids: [linux-archive]
     homepage: "https://github.com/fuad-daoud/pkgmate"
     description: "TUI application to manage your dependencies"
     maintainers:
