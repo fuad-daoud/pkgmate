@@ -1,0 +1,119 @@
+name: Crash Report
+description: Report an application crash
+title: "[Crash] "
+labels: ["bug", "crash"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a crash. Please paste the contents of your crash report file (`/tmp/pkgmate-crash-report.md`) below.
+        
+  - type: textarea
+    id: crash-report
+    attributes:
+      label: Crash Report
+      description: Paste the full contents of the crash report file here
+      placeholder: |
+        # Crash Report
+        
+        ## System Information
+        
+        - **Date**: 2024-11-28 12:34:56 UTC
+        - **Version**: v0.9.0
+        - **Commit**: abc123def456
+        - **Build Time**: 2024-11-20 10:30:00
+        - **OS**: linux
+        - **Arch**: amd64
+        - **Go Version**: go1.25.2
+        
+        ## Error
+        
+        ```
+        runtime error: invalid memory address or nil pointer dereference
+        ```
+        
+        ## Stack Trace
+        
+        ```
+        goroutine 1 [running]:
+        runtime/debug.Stack()
+            /usr/lib/go/src/runtime/debug/stack.go:26 +0x5e
+        main.main.func1()
+            /home/user/pkgmate/main/main.go:18 +0x4b
+        panic({0x77c1e0?, 0x89e4a0?})
+            /usr/lib/go/src/runtime/panic.go:783 +0x132
+        pkgmate/backend.UpdateAll()
+            /home/user/pkgmate/backend/backend.go:103 +0x25
+        pkgmate/ui.(*commandExecModel).startCommand(0xc000554008)
+            /home/user/pkgmate/ui/command_viewer.go:67 +0x35
+        ```
+        
+        ## Debug Log
+        
+        <details>
+        <summary>Click to expand</summary>
+        
+        ```
+        2024/11/28 12:34:50 INFO pkgmate version=v0.9.0
+        2024/11/28 12:34:50 INFO pkgmate Built=2024-11-20
+        2024/11/28 12:34:51 INFO time to map all packages time=2.156s
+        ```
+        </details>
+      value: |
+        # Crash Report
+        
+        ## System Information
+        
+        - **Date**: 
+        - **Version**: 
+        - **Commit**: 
+        - **Build Time**: 
+        - **OS**: 
+        - **Arch**: 
+        - **Go Version**: 
+        
+        ## Error
+        
+        ```
+        
+        ```
+        
+        ## Stack Trace
+        
+        ```
+        
+        ```
+        
+        ## Debug Log
+        
+        <details>
+        <summary>Click to expand</summary>
+        
+        ```
+        
+        ```
+        </details>
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce (if known)
+      description: What were you doing when the crash occurred?
+      placeholder: |
+        1. Opened pkgmate
+        2. Pressed 'tab' to switch to dependency packages
+        3. Pressed 'D' to delete a package
+        4. Application crashed
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information that might be helpful (screenshots, logs, etc.)
+      placeholder: This happened after I updated to the latest version...
+    validations:
+      required: false
