@@ -12,6 +12,29 @@ import (
 )
 
 func main() {
+	var p *tea.Program
+	defer func() {
+		p.ReleaseTerminal()
+		if r := recover(); true {
+			stackTrace := string(debug.Stack())
+
+			slog.Error("Application crashed", "error", r, "stack", stackTrace)
+
+			p = tea.NewProgram(
+				ui.NewPanicScreen(r, stackTrace),
+				tea.WithAltScreen(),
+				tea.WithFPS(24),
+			)
+
+			if _, err := p.Run(); err != nil {
+				slog.Error("Failed to run", "err", err)
+				os.Exit(1)
+			}
+
+			os.Exit(1)
+		}
+	}()
+
 	isPrivileged := os.Geteuid() == 0
 	if isPrivileged {
 		slog.Error("can't run in root")
@@ -28,7 +51,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	p := tea.NewProgram(ui.InitialModel(), tea.WithAltScreen(), tea.WithFPS(24))
+	p = tea.NewProgram(ui.InitialModel(), tea.WithAltScreen(), tea.WithFPS(24), tea.WithoutCatchPanics())
 	if _, err := p.Run(); err != nil {
 		slog.Error("Failed to run", "err", err)
 		os.Exit(1)
