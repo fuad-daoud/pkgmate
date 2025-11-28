@@ -11,11 +11,11 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    container: archlinux:latest
     steps:
       - name: Install dependencies
         run: |
-          pacman -Syu --noconfirm go git base-devel goreleaser openssh syft
+          sudo apt-get update
+          sudo apt-get install -y go git goreleaser openssh-client syft gnupg
       - run: git config --global --add safe.directory $PWD
       - uses: actions/checkout@v4
         with:

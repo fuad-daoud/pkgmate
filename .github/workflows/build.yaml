@@ -11,7 +11,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: archlinux:latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -19,7 +18,8 @@ jobs:
           path: .
       - name: Install dependencies
         run: |
-          pacman -Syu --noconfirm go git base-devel jq
+          sudo apt-get update
+          sudo apt-get install -y jq
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -57,7 +57,7 @@ jobs:
         if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck -format sarif -tags=arch ./... > govulncheck-results.sarif || true
+          govulncheck -format sarif ./... > govulncheck-results.sarif || true
 
       - name: Upload govulncheck SARIF artifact
         if: always() && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
@@ -83,14 +83,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Linux artifacts (Arch)
-        uses: actions/upload-artifact@v4
-        with:
-          name: pkgmate-arch-${{ github.sha }}
-          path: dist/*arch*.tar.gz
-          retention-days: 7
-
-      - name: Upload Linux artifacts (Universal)
+      - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: pkgmate-linux-${{ github.sha }}
