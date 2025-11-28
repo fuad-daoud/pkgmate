@@ -2,7 +2,7 @@ services:
   arch:
     image: archlinux:latest
     volumes:
-      - ./dist/pkgmate-arch_linux_amd64_v1/pkgmate:/pkgmate:ro
+      - ./dist/pkgmate-linux_linux_amd64_v1/pkgmate:/pkgmate:ro
     stdin_open: true
     tty: true
 
