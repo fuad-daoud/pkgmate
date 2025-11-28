@@ -42,7 +42,7 @@ func NewPanicScreen(err any, stackTrace string) panicScreenModel {
 	markdown := generateIssueMarkdown(err, stackTrace, debugLog)
 
 	reportPath := filepath.Join(os.TempDir(), "pkgmate-crash-report.md")
-	os.WriteFile(reportPath, []byte(markdown), 0644)
+	os.WriteFile(reportPath, []byte(markdown), 0600)
 
 	return panicScreenModel{
 		markdown:   markdown,
