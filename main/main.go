@@ -15,7 +15,7 @@ func main() {
 	var p *tea.Program
 	defer func() {
 		p.ReleaseTerminal()
-		if r := recover(); true {
+		if r := recover(); r != nil {
 			stackTrace := string(debug.Stack())
 
 			slog.Error("Application crashed", "error", r, "stack", stackTrace)
