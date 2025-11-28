@@ -76,7 +76,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			commands = append(commands, m.spin.Tick)
 		}
 	case ShutdownDelayMsg:
-		return m, tea.Quit
+		return m, tea.Sequence(tea.ClearScreen, tea.Quit)
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spin, cmd = m.spin.Update(msg)
