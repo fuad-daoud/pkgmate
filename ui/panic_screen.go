@@ -30,11 +30,13 @@ type panicKeys struct {
 }
 
 func NewPanicScreen(err any, stackTrace string) panicScreenModel {
-	debugLogPath := filepath.Join(os.TempDir(), "user", "debug.log")
+	debugLogPath := filepath.Join("user", "debug.log")
 
 	debugLog := ""
-	if data, err := os.ReadFile(debugLogPath); err == nil {
-		debugLog = string(data)
+	if root, err := os.OpenRoot(os.TempDir()); err != nil {
+		if data, err := root.ReadFile(debugLogPath); err == nil {
+			debugLog = string(data)
+		}
 	}
 
 	markdown := generateIssueMarkdown(err, stackTrace, debugLog)
