@@ -8,16 +8,28 @@
 
 ![Demo](demo.gif)
 
-A fast, cross-platform Terminal User Interface (TUI) package manager for Linux and macOS. Manage packages from **Arch Linux** (pacman), **Debian/Ubuntu** (dpkg/apt), and **macOS** (Homebrew) with a unified, responsive interface.
+A fast, cross-platform Terminal User Interface (TUI) package manager. Manage packages across multiple backends with a unified, responsive interface.
 
 ## Features
 
-- 🚀 **Blazing fast** - Direct library integration, instant startup
-- 🔍 **Telescope-style search** - Fuzzy search through packages
-- 📦 **Multi-platform** - Arch, Debian/Ubuntu, and macOS support
+- ⚡ **Fast startup** - Direct file parsing and efficient CLI wrapping
+- 🔍 **Telescope-style search** - Live fuzzy search through packages
+- 📦 **Multi-backend support** - pacman/AUR, dpkg/apt, Homebrew, Flatpak, Snap, npm
 - 🔒 **Security-first** - GPG signing, automated vulnerability scanning
 - 📊 **Clean interface** - Table view with virtual scrolling, visual indicators for updates and frozen packages
 - ⚡ **Privilege escalation** - PolicyKit integration with sudo fallback
+- 🎨 **Command palette** - Quick access to all features (Ctrl+k/Ctrl+k)
+
+## Supported Platforms
+
+| Platform | Backend |
+|----------|---------|
+| Arch Linux | pacman/AUR |
+| Debian/Ubuntu | dpkg/apt |
+| macOS | Homebrew (formulae + casks) |
+| Linux | Flatpak |
+| Linux | Snap |
+| All platforms | npm (global) |
 
 ## Installation
 
@@ -32,9 +44,8 @@ paru -S pkgmate-bin
 
 **Manual:**
 ```bash
-export VERSION="v0.9.0"
-curl -LO https://github.com/fuad-daoud/pkgmate/releases/download/$VERSION/pkgmate-arch-linux-amd64.tar.gz
-tar -xzf pkgmate-arch-linux-amd64.tar.gz
+curl -LO https://github.com/fuad-daoud/pkgmate/releases/latest/download/pkgmate-linux-amd64.tar.gz
+tar -xzf pkgmate-linux-amd64.tar.gz
 sudo install -m 755 pkgmate /usr/local/bin/
 ```
 
@@ -53,9 +64,8 @@ sudo apt install pkgmate
 
 **Manual .deb:**
 ```bash
-export VERSION="v0.9.0"
-curl -LO https://github.com/fuad-daoud/pkgmate/releases/download/$VERSION/pkgmate_${VERSION#v}_linux_amd64.deb
-sudo dpkg -i pkgmate_${VERSION#v}_linux_amd64.deb
+curl -LO https://github.com/fuad-daoud/pkgmate/releases/latest/download/pkgmate_linux_amd64.deb
+sudo dpkg -i pkgmate_*_linux_amd64.deb
 ```
 
 ### macOS
@@ -68,28 +78,21 @@ brew install pkgmate
 
 **Manual:**
 ```bash
-export VERSION="v0.9.0"
-curl -LO https://github.com/fuad-daoud/pkgmate/releases/download/$VERSION/pkgmate-brew-darwin-amd64.tar.gz
-tar -xzf pkgmate-brew-darwin-amd64.tar.gz
+curl -LO https://github.com/fuad-daoud/pkgmate/releases/latest/download/pkgmate-darwin-universal.tar.gz
+tar -xzf pkgmate-darwin-universal.tar.gz
 sudo install -m 755 pkgmate /usr/local/bin/
 ```
 
 ### From Source
 
-**Requirements:** Go 1.25+, base-devel (Arch), build-essential (Debian)
+**Requirements:** Go 1.25+, build tools (base-devel on Arch, build-essential on Debian)
 
 ```bash
 git clone https://github.com/fuad-daoud/pkgmate.git
 cd pkgmate
 
-# For Arch Linux
-CGO_ENABLED=1 go build -tags=arch -o pkgmate ./main
-
-# For Debian/Ubuntu
-CGO_ENABLED=0 go build -tags=dpkg -o pkgmate ./main
-
-# For macOS/Homebrew
-CGO_ENABLED=0 go build -tags=brew -o pkgmate ./main
+# Build (detects platform automatically)
+go build -o pkgmate ./main
 
 sudo install -m 755 pkgmate /usr/local/bin/
 ```
@@ -104,20 +107,27 @@ pkgmate
 pkgmate --version
 ```
 
+**Keyboard shortcuts:**
+- `/` or `Ctrl+F` - Search packages
+- `Tab` / `Shift+Tab` - Switch between tabs
+- `↑↓` or `j/k` - Navigate packages
+- `Ctrl+P` or `Ctrl+k` - Command palette
+- `Ctrl+C` - Quit
+
 ## Verifying Downloads
 
 All releases are GPG signed:
 
 ```bash
-export PKGMATE_VERSION="v0.9.0"
-curl -LO https://github.com/fuad-daoud/pkgmate/releases/download/$PKGMATE_VERSION/pkgmate-arch-linux-amd64.tar.gz
-curl -LO https://github.com/fuad-daoud/pkgmate/releases/download/$PKGMATE_VERSION/pkgmate-arch-linux-amd64.tar.gz.sig
+# Download release and signature
+curl -LO https://github.com/fuad-daoud/pkgmate/releases/latest/download/pkgmate-linux-amd64.tar.gz
+curl -LO https://github.com/fuad-daoud/pkgmate/releases/latest/download/pkgmate-linux-amd64.tar.gz.sig
 
 # Import public key
 curl https://raw.githubusercontent.com/fuad-daoud/pkgmate/main/public-key.asc | gpg --import
 
 # Verify signature
-gpg --verify pkgmate-arch-linux-amd64.tar.gz.sig pkgmate-arch-linux-amd64.tar.gz
+gpg --verify pkgmate-linux-amd64.tar.gz.sig pkgmate-linux-amd64.tar.gz
 ```
 
 ## macOS Code Signature Verification
@@ -125,14 +135,13 @@ gpg --verify pkgmate-arch-linux-amd64.tar.gz.sig pkgmate-arch-linux-amd64.tar.gz
 macOS binaries are signed with Apple Developer ID and notarized:
 
 ```bash
-export PKGMATE_VERSION="v0.11.0"
-curl -LO https://github.com/fuad-daoud/pkgmate/releases/download/$PKGMATE_VERSION/pkgmate-brew-darwin-universal.tar.gz
-tar -xzf pkgmate-brew-darwin-universal.tar.gz
+curl -LO https://github.com/fuad-daoud/pkgmate/releases/latest/download/pkgmate-darwin-universal.tar.gz
+tar -xzf pkgmate-darwin-universal.tar.gz
 
 # Verify code signature
 codesign --verify --verbose pkgmate
 # Check notarization and Gatekeeper approval
-spctl -a -vv -t install
+spctl -a -vv -t install pkgmate
 # View signing details
 codesign -dvvv pkgmate
 ```
@@ -143,14 +152,28 @@ pkgmate: valid on disk
 pkgmate: satisfies its Designated Requirement
 pkgmate: accepted
 source=Notarized Developer ID
-<many signing info>
+```
+
+## Recording Demo
+
+The demo GIF is created using [VHS](https://github.com/charmbracelet/vhs):
+
+```bash
+# Install VHS
+go install github.com/charmbracelet/vhs@latest
+
+# Record demo
+make demo
+
+# Or record the full demo
+make demo-full
 ```
 
 ## Development
 
 ```bash
-# Run with hot reload
-make arch    # Test in Arch container
+# Run with hot reload in containers
+make arch    # Test in Arch Linux container
 make debian  # Test in Debian container
 make brew    # Test in Homebrew container
 
