@@ -6,6 +6,7 @@
 [![Security Scan](https://github.com/fuad-daoud/pkgmate/workflows/Security%20Monitoring/badge.svg)](https://github.com/fuad-daoud/pkgmate/actions/workflows/security-scan.yml)
 [![Publish APT](https://github.com/fuad-daoud/pkgmate/workflows/Publish%20APT%20Repository/badge.svg)](https://github.com/fuad-daoud/pkgmate/actions/workflows/publish-apt-repo.yml)
 
+![Demo](demo.gif)
 
 A fast, cross-platform Terminal User Interface (TUI) package manager for Linux and macOS. Manage packages from **Arch Linux** (pacman), **Debian/Ubuntu** (dpkg/apt), and **macOS** (Homebrew) with a unified, responsive interface.
 
