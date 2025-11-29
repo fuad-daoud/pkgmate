@@ -96,7 +96,7 @@ func (d *DpkgBackend) LoadPackages() (chan []Package, error) {
 
 				_, isAuto := autoInstalled[pkg.Name]
 				pkg.IsDirect = !isAuto
-				pkg.DB = "dpkg"
+				pkg.DB = "apt/dpkg"
 				pkg.IsFrozen = heldPkgs[pkg.Name]
 
 				packages = append(packages, pkg)

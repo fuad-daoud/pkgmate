@@ -86,7 +86,7 @@ func (s *SnapBackend) LoadPackages() (chan []Package, error) {
 				Date:     installDate,
 				IsDirect: isDirect,
 				IsFrozen: heldPkgs[name],
-				DB:       "Snap",
+				DB:       "snap",
 			})
 		}
 

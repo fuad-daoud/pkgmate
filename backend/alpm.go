@@ -61,6 +61,7 @@ func (p *PacmanBackend) LoadPackages() (chan []Package, error) {
 				aurPkgs = append(aurPkgs, pkg)
 				aurPkgNames = append(aurPkgNames, pkg.Name)
 			} else {
+				pkg.DB = "pacman"
 				regularPkgs = append(regularPkgs, pkg)
 			}
 		}
@@ -278,7 +279,7 @@ func parsePackageInfo(output string, explicitPkgs, pinnedPkgs map[string]bool, u
 
 		// Check if AUR package
 		if foreignPkgs[pkg.Name] {
-			pkg.DB = "AUR"
+			pkg.DB = "pacman/AUR"
 		}
 
 		// If no install date, try to get from filesystem

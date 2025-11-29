@@ -133,6 +133,7 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		columns := []string{
 			"Name",
 			"Version",
+			"Package Manager",
 			"Size",
 			"Installed",
 		}
@@ -176,7 +177,7 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		pkgs := msg.pkgs
 		for _, pkg := range pkgs {
-			row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
+			row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.DB, pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
 			if pkg.IsDirect {
 				m.tables[0].addRow(row)
 				if pkg.NewVersion != "" {
@@ -211,7 +212,7 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		for _, pkg := range msg.pkgs {
-			row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
+			row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.DB, pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
 			m.tables[3].addRow(row)
 			if pkg.NewVersion != "" {
 				m.tables[3].addStyleRow(pkg.Name, updateAvailableRow)

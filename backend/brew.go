@@ -167,7 +167,7 @@ func (b *BrewBackend) LoadPackages() (chan []Package, error) {
 						Date:     installedDate,
 						IsDirect: true, // Casks are always direct installs
 						IsFrozen: false,
-						DB:       "Cask",
+						DB:       "brew/Cask",
 					}
 				})
 			}
@@ -280,7 +280,7 @@ func (b *BrewBackend) GetOrphanPackages() ([]Package, error) {
 				Date:     installDate,
 				IsDirect: false,
 				IsFrozen: pinnedFormulae[pkgName],
-				DB:       "Homebrew",
+				DB:       "homebrew/formulae",
 			})
 		}
 	}
@@ -318,7 +318,6 @@ func getNewestVersion(pkgPath string) (string, error) {
 	}
 	return newest, nil
 }
-
 
 func getCaskSize(caskroomPath, caskName, version string) int64 {
 	caskPath := filepath.Join(caskroomPath, caskName, version)
