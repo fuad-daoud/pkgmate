@@ -14,8 +14,10 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
+          echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
           sudo apt-get update
-          sudo apt-get install -y go git goreleaser openssh-client syft gnupg
+          sudo apt-get install -y golang-go git goreleaser openssh-client gnupg
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
       - run: git config --global --add safe.directory $PWD
       - uses: actions/checkout@v4
         with:
