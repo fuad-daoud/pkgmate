@@ -124,7 +124,7 @@ func copyToClipboard(text string) tea.Cmd {
 		case "darwin":
 			cmd = exec.Command("pbcopy")
 		case "linux":
-			if _, err := exec.LookPath("wl-copy2"); err == nil {
+			if _, err := exec.LookPath("wl-copy"); err == nil {
 				cmd = exec.Command("wl-copy")
 			} else if _, err := exec.LookPath("xclip"); err == nil {
 				cmd = exec.Command("xclip", "-selection", "clipboard")
@@ -227,7 +227,7 @@ func (m panicScreenModel) View() string {
 		content.WriteString("\n")
 		content.WriteString(textStyle.Render("Or manually copy the file above"))
 	} else {
-		content.WriteString(textStyle.Render("Copy the file above and paste contents at:"))
+		content.WriteString(textStyle.Render("Copy the file above and paste contents in a github issue"))
 	}
 
 	content.WriteString("\n")
