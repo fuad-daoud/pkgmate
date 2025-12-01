@@ -364,7 +364,7 @@ func (m tableModel) tabsView() string {
 			tabs = append(tabs, tab)
 			continue
 		}
-		tab := topLeftTab.Render(v.label + "|" + strconv.Itoa(len(v.OriginalRows)))
+		tab := topLeftTab.BorderForeground(mutedColor).Foreground(mutedColor).Render(v.label + "|" + strconv.Itoa(len(v.OriginalRows)))
 		tabs = append(tabs, tab)
 
 	}
