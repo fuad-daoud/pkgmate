@@ -10,7 +10,7 @@ Set WindowBar Colorful
 Set PlaybackSpeed 1.3
 
 # Launch
-Type "pkgmate" Sleep 300ms Enter
+Type "./pkgmate" Sleep 300ms Enter
 Sleep 1s
 
 # Search
