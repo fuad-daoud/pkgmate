@@ -89,7 +89,7 @@ func (f *FlatpakBackend) LoadPackages() (chan []Package, error) {
 				Date:     installDate,
 				IsDirect: true, // All flatpak apps are direct installs
 				IsFrozen: false,
-				DB:       "Flatpak",
+				DB:       "flatpak",
 			})
 		}
 
