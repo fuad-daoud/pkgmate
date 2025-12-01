@@ -56,14 +56,16 @@ func (k tableKeys) FullHelp() [][]key.Binding {
 }
 
 type tableModel struct {
-	keys         tableKeys
-	tables       []customTable
-	search       textinput.Model
-	previousTerm string
-	lastCursor   int
-	activeTable  int
-	pkgStream    chan []backend.Package
-	orphanStream chan []backend.Package
+	keys              tableKeys
+	columns           []string
+	tables            []customTable
+	search            textinput.Model
+	previousTerm      string
+	lastCursor        int
+	activeTable       int
+	activeSearchField int
+	pkgStream         chan []backend.Package
+	orphanStream      chan []backend.Package
 }
 
 func (m *tableModel) table() *customTable {
@@ -86,13 +88,21 @@ func newTable() tableModel {
 		prevTab:        key.NewBinding(key.WithKeys("shift+tab", "ctrl+h", "ctrl+left"), key.WithHelp("shift+tab", "previous tab")),
 	}
 
+	columns := []string{
+		"Name",
+		"Version",
+		"Package Manager",
+		"Size",
+		"Installed",
+	}
+
 	ti := textinput.New()
 	ti.Placeholder = "Search packages..."
 	ti.Prompt = ""
 	ti.CharLimit = 50
 	ti.Width = 50
 	ti.ShowSuggestions = false
-	return tableModel{keys: keys, tables: []customTable{*newCustomTable("Direct Packages"), *newCustomTable("Dependency Packages"), *newCustomTable("All Packages"), *newCustomTable("Orphan Packages")}, search: ti}
+	return tableModel{keys: keys, columns: columns, tables: []customTable{*newCustomTable("Direct Packages"), *newCustomTable("Dependency Packages"), *newCustomTable("All Packages"), *newCustomTable("Orphan Packages")}, search: ti}
 }
 
 func (m tableModel) Init() tea.Cmd {
@@ -130,16 +140,9 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var commands []tea.Cmd
 	switch msg := msg.(type) {
 	case TableInitEvent:
-		columns := []string{
-			"Name",
-			"Version",
-			"Package Manager",
-			"Size",
-			"Installed",
-		}
 		var initCmds []tea.Cmd
 		for i := range m.tables {
-			m.tables[i].Columns = columns
+			m.tables[i].Columns = m.columns
 			initCmds = append(initCmds, m.tables[i].Init())
 		}
 		commands = append(commands, NewLoadPackages, NewLoadOrphans)
@@ -237,12 +240,18 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.table().ExitSelectMode()
 
 		case key.Matches(msg, m.keys.prevTab):
+			if m.search.Focused() {
+				break
+			}
 			m.keys.exitSelectMode.SetEnabled(false)
 			m.table().ExitSelectMode()
 			m.activeTable -= 1
 			m.activeTable += len(m.tables)
 			m.activeTable %= len(m.tables)
 		case key.Matches(msg, m.keys.tab):
+			if m.search.Focused() {
+				break
+			}
 			m.keys.exitSelectMode.SetEnabled(false)
 			m.table().ExitSelectMode()
 			m.activeTable += 1
@@ -279,6 +288,22 @@ func (m tableModel) footerUpdates(msg tea.Msg) (tableModel, tea.Cmd) {
 
 			m.table().Blur()
 			return m, textinput.Blink
+		case key.Matches(msg, m.keys.tab):
+			if !m.search.Focused() {
+				break
+			}
+
+			m.activeSearchField += 1
+			m.activeSearchField %= len(m.columns)
+
+		case key.Matches(msg, m.keys.prevTab):
+			if !m.search.Focused() {
+				break
+			}
+
+			m.activeSearchField -= 1
+			m.activeSearchField += len(m.columns)
+			m.activeSearchField %= len(m.columns)
 
 		case key.Matches(msg, m.keys.reset):
 			m.search.Blur()
@@ -313,7 +338,7 @@ func (m tableModel) footerUpdates(msg tea.Msg) (tableModel, tea.Cmd) {
 				}
 				m.previousTerm = term
 
-				m.table().filterColumn("Name", m.previousTerm)
+				m.table().filterColumn(m.columns[m.activeSearchField], m.previousTerm)
 				return m, nil
 			}
 
@@ -355,8 +380,18 @@ func (m tableModel) footerView() string {
 	rightSection := lipgloss.JoinHorizontal(lipgloss.Top, cursor, count)
 
 	styledSearch := bottomLeftTab.Render(m.search.View())
-	searchColumn := bottomLeftTab.Bold(true).Render("Name")
-	leftSection := lipgloss.JoinHorizontal(lipgloss.Bottom, styledSearch, searchColumn)
+	leftSectionTabs := make([]string, 0)
+	leftSectionTabs = append(leftSectionTabs, styledSearch)
+	for i, column := range m.columns {
+		if i == m.activeSearchField {
+			searchField := bottomLeftTab.Bold(true).BorderStyle(lipgloss.ThickBorder()).BorderForeground(selectedColor).Render(m.columns[m.activeSearchField])
+			leftSectionTabs = append(leftSectionTabs, searchField)
+			continue
+		}
+		field := bottomLeftTab.Foreground(mutedColor).BorderForeground(mutedColor).Render(column)
+		leftSectionTabs = append(leftSectionTabs, field)
+	}
+	leftSection := lipgloss.JoinHorizontal(lipgloss.Bottom, leftSectionTabs...)
 	spacer := spaceStyle.Width(m.table().Width - lipgloss.Width(leftSection) - lipgloss.Width(rightSection)).Render()
 	return lipgloss.JoinHorizontal(lipgloss.Top, leftSection, spacer, rightSection)
 }
