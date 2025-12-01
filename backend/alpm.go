@@ -259,8 +259,6 @@ func parsePackageInfo(output string, explicitPkgs, pinnedPkgs map[string]bool, u
 				pkg.Date = parseDate(value)
 			case "Install Reason":
 				pkg.IsDirect = value == "Explicitly installed"
-			case "Repository":
-				pkg.DB = value
 			}
 		}
 
@@ -280,6 +278,8 @@ func parsePackageInfo(output string, explicitPkgs, pinnedPkgs map[string]bool, u
 		// Check if AUR package
 		if foreignPkgs[pkg.Name] {
 			pkg.DB = "pacman/AUR"
+		} else {
+			pkg.DB = "pacman"
 		}
 
 		// If no install date, try to get from filesystem
