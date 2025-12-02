@@ -57,7 +57,7 @@ jobs:
         if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck -format sarif ./... > govulncheck-results.sarif || true
+          govulncheck -format sarif -tags=all_backends ./... > govulncheck-results.sarif || true
 
       - name: Upload govulncheck SARIF artifact
         if: always() && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
