@@ -16,6 +16,7 @@ builds:
       - -X pkgmate/ui.Version={{.Version}}
       - -X pkgmate/ui.BuildTime={{.Date}}
       - -X pkgmate/ui.GitCommit={{.FullCommit}}
+      - -tags=all_backends
       - -buildid=
     flags:
       - -trimpath
@@ -32,6 +33,7 @@ builds:
       - -X pkgmate/ui.Version={{.Version}}
       - -X pkgmate/ui.BuildTime={{.Date}}
       - -X pkgmate/ui.GitCommit={{.FullCommit}}
+      - -tags=all_backends
       - -buildid=
     flags:
       - -trimpath
