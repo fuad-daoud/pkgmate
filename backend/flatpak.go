@@ -1,3 +1,5 @@
+//go:build flatpak || all_backends
+
 package backend
 
 import (

@@ -1,3 +1,5 @@
+//go:build pip || all_backends
+
 package backend
 
 import (

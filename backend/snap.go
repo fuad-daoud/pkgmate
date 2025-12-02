@@ -1,3 +1,5 @@
+//go:build snap || all_backends
+
 package backend
 
 import (

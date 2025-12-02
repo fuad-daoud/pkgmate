@@ -1,3 +1,5 @@
+//go:build golang || all_backends
+
 package backend
 
 import (

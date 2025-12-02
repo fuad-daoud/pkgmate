@@ -1,3 +1,5 @@
+//go:build npm || all_backends
+
 package backend
 
 import (

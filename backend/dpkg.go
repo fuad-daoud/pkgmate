@@ -1,3 +1,5 @@
+//go:build dpkg || all_backends
+
 package backend
 
 import (
