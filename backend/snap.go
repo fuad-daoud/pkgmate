@@ -27,8 +27,8 @@ func (s *SnapBackend) IsAvailable() bool {
 	if _, err := exec.LookPath("snap"); err != nil {
 		return false
 	}
-	cmd := exec.Command("snap", "list")
-	if err := cmd.Run(); err != nil {
+	socketPath := "/run/snapd.socket"
+	if _, err := os.Stat(socketPath); err != nil {
 		return false
 	}
 	return true
