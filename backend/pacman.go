@@ -1,3 +1,5 @@
+//go:build pacman || all_backends
+
 package backend
 
 import (
@@ -57,7 +59,7 @@ func (p *PacmanBackend) LoadPackages() (chan []Package, error) {
 		aurPkgNames := make([]string, 0)
 
 		for _, pkg := range packages {
-			if pkg.DB == "AUR" {
+			if pkg.DB == "pacman/AUR" {
 				aurPkgs = append(aurPkgs, pkg)
 				aurPkgNames = append(aurPkgNames, pkg.Name)
 			} else {

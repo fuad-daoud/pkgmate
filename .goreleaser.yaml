@@ -11,6 +11,7 @@ builds:
     goos: [linux]
     goarch: [amd64, arm64]
     env: [CGO_ENABLED=0]
+    tags: [all_backends]
     ldflags:
       - -s -w
       - -X pkgmate/ui.Version={{.Version}}
@@ -27,6 +28,7 @@ builds:
     goos: [darwin]
     goarch: [amd64, arm64]
     env: [CGO_ENABLED=0]
+    tags: [all_backends]
     ldflags:
       - -s -w
       - -X pkgmate/ui.Version={{.Version}}

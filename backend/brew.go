@@ -1,3 +1,5 @@
+//go:build brew || all_backends
+
 package backend
 
 import (

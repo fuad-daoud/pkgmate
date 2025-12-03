@@ -1,3 +1,5 @@
+//go:build pacman || all_backends
+
 package backend
 
 import (
