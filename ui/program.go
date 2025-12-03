@@ -5,8 +5,11 @@ import (
 	"log/slog"
 	"os"
 	"runtime/debug"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 )
 
 var Program *tea.Program
@@ -45,6 +48,7 @@ func Run() error {
 			fmt.Printf("Go: %s\n", info.GoVersion)
 		}
 	}
+	initColorProfile()
 
 	Program = tea.NewProgram(InitialModel(), tea.WithAltScreen(), tea.WithFPS(24), tea.WithoutCatchPanics())
 	if _, err := Program.Run(); err != nil {
@@ -52,4 +56,54 @@ func Run() error {
 		return err
 	}
 	return nil
+}
+
+func initColorProfile() {
+	// Allow user override via environment variable
+	if forceProfile := os.Getenv("PKGMATE_COLOR_PROFILE"); forceProfile != "" {
+		switch forceProfile {
+		case "truecolor", "24bit":
+			lipgloss.SetColorProfile(termenv.TrueColor)
+		case "256", "ansi256":
+			lipgloss.SetColorProfile(termenv.ANSI256)
+		case "ansi", "16":
+			lipgloss.SetColorProfile(termenv.ANSI)
+		case "ascii", "none":
+			lipgloss.SetColorProfile(termenv.Ascii)
+		}
+		return
+	}
+
+	// Smart detection: check TERM and COLORTERM
+	term := os.Getenv("TERM")
+	colorterm := os.Getenv("COLORTERM")
+
+	// Most modern terminals set COLORTERM=truecolor or COLORTERM=24bit
+	if colorterm == "truecolor" || colorterm == "24bit" {
+		lipgloss.SetColorProfile(termenv.TrueColor)
+		return
+	}
+
+	// Known TrueColor terminals (even if they don't advertise it)
+	trueColorTerms := []string{
+		"xterm-256color", "screen-256color", "tmux-256color",
+		"alacritty", "kitty", "wezterm", "iterm", "iterm2",
+		"vscode", "konsole", "gnome", "terminator",
+	}
+
+	for _, t := range trueColorTerms {
+		if strings.Contains(term, t) {
+			lipgloss.SetColorProfile(termenv.TrueColor)
+			return
+		}
+	}
+
+	// AWS CloudShell, browser terminals often use basic xterm
+	// but support TrueColor - default to 256 color as safe middle ground
+	if term == "xterm" {
+		lipgloss.SetColorProfile(termenv.ANSI256)
+		return
+	}
+
+	// Otherwise use lipgloss auto-detection (fallback)
 }
