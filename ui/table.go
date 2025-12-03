@@ -64,7 +64,6 @@ type tableModel struct {
 	lastCursor        int
 	activeTable       int
 	activeSearchField int
-	pkgStream         chan []backend.Package
 	orphanStream      chan []backend.Package
 }
 
@@ -110,7 +109,6 @@ func (m tableModel) Init() tea.Cmd {
 }
 
 type PackageStreamMsg struct {
-	done bool
 	pkgs []backend.Package
 }
 
@@ -119,14 +117,6 @@ type OrphanStreamMsg struct {
 	pkgs []backend.Package
 }
 
-func (m tableModel) listen() tea.Msg {
-	data, ok := <-m.pkgStream
-	if !ok {
-		slog.Info("channel is closed")
-		return PackageStreamMsg{done: true}
-	}
-	return PackageStreamMsg{pkgs: data}
-}
 func (m tableModel) listenOrphans() tea.Msg {
 	data, ok := <-m.orphanStream
 	if !ok {
@@ -148,22 +138,26 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		commands = append(commands, NewLoadPackages, NewLoadOrphans)
 		commands = append(commands, initCmds...)
 	case LoadPackages:
-		pkgChan, err := backend.LoadAllPackages()
-		if err != nil {
-			slog.Error("could not load packages", "err", err)
-			break
-		}
-		m.pkgStream = pkgChan
-		commands = append(commands, m.listen)
+		go func() {
+			pkgChan, err := backend.LoadAllPackages()
+			if err != nil {
+				slog.Error("could not load packages", "err", err)
+				return
+			}
+			for data := range pkgChan {
+				Program.Send(PackageStreamMsg{pkgs: data})
+			}
+			slog.Info("channel is closed loaded all packages")
+		}()
 
 	case LoadOrphans:
-		orphanStream, err := backend.GetAllOrphanPackages()
-		if err != nil {
-			slog.Error("could not load orphans", "err", err)
-			break
-		}
-		m.orphanStream = orphanStream
-		commands = append(commands, m.listenOrphans)
+		// orphanStream, err := backend.GetAllOrphanPackages()
+		// if err != nil {
+		// 	slog.Error("could not load orphans", "err", err)
+		// 	break
+		// }
+		// m.orphanStream = orphanStream
+		// commands = append(commands, m.listenOrphans)
 
 	case DisplayResizeEvent:
 		for i := range m.tables {
@@ -205,9 +199,6 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if pkg.IsFrozen {
 				m.tables[2].addStyleRow(pkg.Name, frozenRowStyle)
 			}
-		}
-		if !msg.done {
-			commands = append(commands, m.listen)
 		}
 	case OrphanStreamMsg:
 		if len(msg.pkgs) > 0 {
