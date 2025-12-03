@@ -44,7 +44,7 @@ type Backend interface {
 	Name() string
 	IsAvailable() bool
 	LoadPackages() (chan []Package, error)
-	Update() (func() error, chan OperationResult)
+	// Update() (func() error, chan OperationResult)
 	GetOrphanPackages() ([]Package, error)
 }
 
@@ -74,11 +74,13 @@ func GetAvailableBackends() []Backend {
 
 func LoadAllPackages() (chan []Package, error) {
 	backends := GetAvailableBackends()
+	slog.Info("Available backends", "backends", backends)
 	if len(backends) == 0 {
 		return nil, nil
 	}
 
-	outChan := make(chan []Package, len(backends)*2)
+	outChan := make(chan []Package, len(backends)*3)
+	start := time.Now()
 
 	var wg sync.WaitGroup
 	for _, backend := range backends {
@@ -90,12 +92,14 @@ func LoadAllPackages() (chan []Package, error) {
 			for pkgs := range pkgChan {
 				outChan <- pkgs
 			}
+			slog.Info("loaded pacakges from", "backend", backend.Name(), "time", time.Since(start))
 		})
 	}
 
 	go func() {
 		wg.Wait()
 		close(outChan)
+		slog.Info("Loaded all packages from backend", "time", time.Since(start))
 	}()
 
 	return outChan, nil
