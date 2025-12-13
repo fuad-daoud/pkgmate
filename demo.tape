@@ -11,11 +11,13 @@ Set PlaybackSpeed 1.3
 
 # Launch
 Type "./pkgmate" Sleep 300ms Enter
-Sleep 1s
+Sleep 3s
 
 # Search
 Type "/" Sleep 300ms
-Type "python" Sleep 1.5s
+Tab Sleep 300ms 
+Tab Sleep 300ms 
+Type "pip" Sleep 1.5s
 Enter Sleep 300ms
 Type j Sleep 100ms Type j Sleep 100ms Type j Sleep 100ms
 Type k Sleep 100ms Type k Sleep 100ms Type j Sleep 100ms
