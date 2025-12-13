@@ -19,6 +19,7 @@ type Package struct {
 	IsDirect     bool
 	IsFrozen     bool
 	Dependencies []string
+	IsOrphan     bool
 }
 
 func (p Package) FormatSize() string {
@@ -43,9 +44,8 @@ func (p Package) FormatVersion() string {
 type Backend interface {
 	Name() string
 	IsAvailable() bool
-	LoadPackages() (chan []Package, error)
-	// Update() (func() error, chan OperationResult)
-	GetOrphanPackages() ([]Package, error)
+	LoadPackages(*sync.WaitGroup, func(Package))
+	Update() (func() error, chan OperationResult)
 }
 
 var (
@@ -72,26 +72,21 @@ func GetAvailableBackends() []Backend {
 	return available
 }
 
-func LoadAllPackages() (chan []Package, error) {
+func LoadAllPackages() (chan Package, error) {
 	backends := GetAvailableBackends()
 	slog.Info("Available backends", "backends", backends)
 	if len(backends) == 0 {
 		return nil, nil
 	}
 
-	outChan := make(chan []Package, len(backends)*3)
+	outChan := make(chan Package)
 	start := time.Now()
 
 	var wg sync.WaitGroup
+	send := func(p Package) {outChan <- p}
 	for _, backend := range backends {
 		wg.Go(func() {
-			pkgChan, err := backend.LoadPackages()
-			if err != nil {
-				return
-			}
-			for pkgs := range pkgChan {
-				outChan <- pkgs
-			}
+			backend.LoadPackages(&wg, send)
 			slog.Info("loaded pacakges from", "backend", backend.Name(), "time", time.Since(start))
 		})
 	}
@@ -107,33 +102,6 @@ func LoadAllPackages() (chan []Package, error) {
 
 func UpdateAll() (func() error, chan OperationResult) {
 	panic("Not Implemented")
-}
-
-func GetAllOrphanPackages() (chan []Package, error) {
-	backends := GetAvailableBackends()
-	pkgsChan := make(chan []Package, len(backends))
-
-	var wg sync.WaitGroup
-
-	for _, backend := range backends {
-		wg.Go(func() {
-			orphans, err := backend.GetOrphanPackages()
-			if err != nil {
-				slog.Warn("Failed to get orphans", "backend", backend.Name(), "err", err)
-				return
-			}
-			if len(orphans) > 0 {
-				pkgsChan <- orphans
-			}
-		})
-	}
-
-	go func() {
-		wg.Wait()
-		close(pkgsChan)
-	}()
-
-	return pkgsChan, nil
 }
 
 func calculateSize(path string) int64 {

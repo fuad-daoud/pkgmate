@@ -30,23 +30,18 @@ func (g *GoBackend) IsAvailable() bool {
 	return true
 }
 
-func (g *GoBackend) LoadPackages() (chan []Package, error) {
+func (g *GoBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 	start := time.Now()
 
 	binDir := getGoBinDir()
 	if binDir == "" {
-		return nil, fmt.Errorf("could not determine Go binary directory")
+		slog.Error("could not determine Go binary directory")
+		return
 	}
 
 	if _, err := os.Stat(binDir); err != nil {
-		// Directory doesn't exist, no packages installed
-		pkgsChan := make(chan []Package, 1)
-		close(pkgsChan)
-		return pkgsChan, nil
+		return
 	}
-
-	var wg sync.WaitGroup
-	pkgsChan := make(chan []Package, 1)
 
 	wg.Go(func() {
 		entries, err := os.ReadDir(binDir)
@@ -55,9 +50,6 @@ func (g *GoBackend) LoadPackages() (chan []Package, error) {
 			return
 		}
 
-		packages := make([]Package, 0)
-		results := make(chan Package, len(entries))
-		var loadWg sync.WaitGroup
 		semaphore := make(chan struct{}, 8)
 
 		for _, entry := range entries {
@@ -65,7 +57,7 @@ func (g *GoBackend) LoadPackages() (chan []Package, error) {
 				continue
 			}
 
-			loadWg.Go(func() {
+			wg.Go(func() {
 				semaphore <- struct{}{}
 				defer func() { <-semaphore }()
 
@@ -73,7 +65,6 @@ func (g *GoBackend) LoadPackages() (chan []Package, error) {
 
 				bi, err := buildinfo.ReadFile(binaryPath)
 				if err != nil {
-					// Not a Go binary or no build info
 					slog.Debug("Could not read build info", "binary", entry.Name(), "err", err)
 					return
 				}
@@ -94,37 +85,21 @@ func (g *GoBackend) LoadPackages() (chan []Package, error) {
 					version = "unknown"
 				}
 
-				results <- Package{
+				load(Package{
 					Name:     packageName,
 					Version:  version,
 					Size:     info.Size(),
 					Date:     info.ModTime(),
-					IsDirect: true, // All Go installed binaries are direct installs
+					IsDirect: true,
 					IsFrozen: false,
+					IsOrphan: false,
 					DB:       "golang",
-				}
+				})
 			})
 		}
 
-		go func() {
-			loadWg.Wait()
-			close(results)
-		}()
-
-		for pkg := range results {
-			packages = append(packages, pkg)
-		}
-
-		wg.Go(func() { pkgsChan <- packages })
+		slog.Info("loaded packages from go", "time", time.Since(start))
 	})
-
-	go func() {
-		wg.Wait()
-		close(pkgsChan)
-		slog.Info("time to load Go packages", "time", time.Since(start))
-	}()
-
-	return pkgsChan, nil
 }
 
 func (g *GoBackend) Update() (func() error, chan OperationResult) {
@@ -135,10 +110,6 @@ func (g *GoBackend) Update() (func() error, chan OperationResult) {
 		resultChan <- OperationResult{Error: err}
 		return err
 	}, resultChan
-}
-
-func (g *GoBackend) GetOrphanPackages() ([]Package, error) {
-	return []Package{}, nil
 }
 
 func getGoBinDir() string {
@@ -155,4 +126,7 @@ func getGoBinDir() string {
 	}
 
 	return ""
+}
+func (g GoBackend) String() string {
+	return g.Name()
 }

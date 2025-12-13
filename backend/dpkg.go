@@ -1,9 +1,8 @@
-//go:build dpkg || all_backends
-
 package backend
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strconv"
@@ -35,22 +34,21 @@ func (d *DpkgBackend) IsAvailable() bool {
 	return false
 }
 
-func (d *DpkgBackend) LoadPackages() (chan []Package, error) {
+func (d *DpkgBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 	start := time.Now()
 
 	data, err := os.ReadFile("/var/lib/dpkg/status")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read dpkg status: %w", err)
+		slog.Error("failed to read dpkg status", "err", err)
+		return
 	}
 
 	autoInstalled := getAutoInstalledPackages()
+	heldPkgs := getHeldPackages()
+	upgradable := getUpgradableVersions()
+	orphanNames := getOrphanPackageNames()
 
-	pkgsChan := make(chan []Package, 1)
-
-	var wg sync.WaitGroup
 	wg.Go(func() {
-		heldPkgs := getHeldPackages()
-		packages := make([]Package, 0)
 		paragraphs := strings.SplitSeq(string(data), "\n\n")
 
 		for para := range paragraphs {
@@ -100,31 +98,18 @@ func (d *DpkgBackend) LoadPackages() (chan []Package, error) {
 				pkg.IsDirect = !isAuto
 				pkg.DB = "apt/dpkg"
 				pkg.IsFrozen = heldPkgs[pkg.Name]
+				pkg.IsOrphan = orphanNames[pkg.Name]
 
-				packages = append(packages, pkg)
-			}
+				if newVer, ok := upgradable[pkg.Name]; ok && newVer != pkg.Version {
+					pkg.NewVersion = newVer
+				}
 
-		}
-
-		wg.Go(func() { pkgsChan <- packages })
-
-		upgradable := getUpgradableVersions()
-		for i := range packages {
-			if newVer, ok := upgradable[packages[i].Name]; ok && newVer != packages[i].Version {
-				packages[i].NewVersion = newVer
+				load(pkg)
 			}
 		}
 
-		wg.Go(func() { pkgsChan <- packages })
+		slog.Info("loaded packages from dpkg", "time", time.Since(start))
 	})
-
-	go func() {
-		wg.Wait()
-		close(pkgsChan)
-		_ = time.Since(start)
-	}()
-
-	return pkgsChan, nil
 }
 
 func (d *DpkgBackend) Update() (func() error, chan OperationResult) {
@@ -143,84 +128,6 @@ func (d *DpkgBackend) Update() (func() error, chan OperationResult) {
 		resultChan <- OperationResult{Error: err}
 		return err
 	}, resultChan
-}
-
-func (d *DpkgBackend) GetOrphanPackages() ([]Package, error) {
-	cmd := exec.Command("apt-get", "--simulate", "autoremove")
-	output, err := cmd.Output()
-	if err != nil {
-		return []Package{}, nil
-	}
-
-	heldPkgs := getHeldPackages()
-
-	orphans := make([]Package, 0)
-
-	for line := range strings.SplitSeq(string(output), "\n") {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "Remv ") {
-			continue
-		}
-
-		fields := strings.Fields(line)
-		if len(fields) < 2 {
-			continue
-		}
-
-		pkgName := fields[1]
-
-		data, err := os.ReadFile("/var/lib/dpkg/status")
-		if err != nil {
-			continue
-		}
-
-		paragraphs := strings.SplitSeq(string(data), "\n\n")
-		for para := range paragraphs {
-			if !strings.Contains(para, "Package: "+pkgName) {
-				continue
-			}
-
-			var pkg Package
-			pkg.Name = pkgName
-			pkg.IsDirect = false
-			pkg.DB = "dpkg"
-			pkg.IsFrozen = heldPkgs[pkgName]
-
-			lines := strings.SplitSeq(para, "\n")
-			for line := range lines {
-				if strings.HasPrefix(line, " ") {
-					continue
-				}
-
-				parts := strings.SplitN(line, ": ", 2)
-				if len(parts) != 2 {
-					continue
-				}
-
-				key := parts[0]
-				value := parts[1]
-
-				switch key {
-				case "Version":
-					pkg.Version = value
-				case "Installed-Size":
-					if size, err := strconv.ParseInt(value, 10, 64); err == nil {
-						pkg.Size = size * 1024
-					}
-				}
-			}
-
-			listFile := fmt.Sprintf("/var/lib/dpkg/info/%s.list", pkgName)
-			if info, err := os.Stat(listFile); err == nil {
-				pkg.Date = info.ModTime()
-			}
-
-			orphans = append(orphans, pkg)
-			break
-		}
-	}
-
-	return orphans, nil
 }
 
 func getAutoInstalledPackages() map[string]bool {
@@ -301,4 +208,33 @@ func getHeldPackages() map[string]bool {
 	}
 
 	return held
+}
+
+func getOrphanPackageNames() map[string]bool {
+	orphans := make(map[string]bool)
+
+	cmd := exec.Command("apt-get", "--simulate", "autoremove")
+	output, err := cmd.Output()
+	if err != nil {
+		return orphans
+	}
+
+	for line := range strings.SplitSeq(string(output), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "Remv ") {
+			continue
+		}
+
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+
+		orphans[fields[1]] = true
+	}
+
+	return orphans
+}
+func (d DpkgBackend) String() string {
+	return d.Name()
 }

@@ -45,37 +45,34 @@ func (b *BrewBackend) IsAvailable() bool {
 	return true
 }
 
-func (b *BrewBackend) LoadPackages() (chan []Package, error) {
-	start := time.Now()
-
+func (b *BrewBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 	cellarCmd := exec.Command("brew", "--cellar")
 	cellarOutput, err := cellarCmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get cellar path: %w", err)
+		slog.Error("failed to get cellar path", "err", err)
+		return
 	}
 	cellarPath := strings.TrimSpace(string(cellarOutput))
 
 	entries, err := os.ReadDir(cellarPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read cellar: %w", err)
+		slog.Error("failed to read cellar", "err", err)
+		return
 	}
 
-	var wg sync.WaitGroup
-	pkgsChan := make(chan []Package, 2)
-
 	wg.Go(func() {
-		packages := make([]Package, 0, len(entries))
-		results := make(chan Package, len(entries)*2) // *2 to account for casks
-		var loadWg sync.WaitGroup
-		semaphore := make(chan struct{}, 8)
 		pinnedFormulae := getPinnedFormulae()
+		outdated := getOutdatedVersions()
+		orphanNames := getOrphanNames()
+
+		semaphore := make(chan struct{}, 8)
 
 		for _, entry := range entries {
 			if !entry.IsDir() {
 				continue
 			}
 
-			loadWg.Go(func() {
+			wg.Go(func() {
 				pkgName := entry.Name()
 
 				semaphore <- struct{}{}
@@ -109,13 +106,13 @@ func (b *BrewBackend) LoadPackages() (chan []Package, error) {
 					receiptPath := filepath.Join(verEntry.Name(), "INSTALL_RECEIPT.json")
 					receiptData, err := root.ReadFile(receiptPath)
 					if err != nil {
-						slog.Warn("could not read data for pacakge", "package", pkgName, "err", err)
+						slog.Warn("could not read data for package", "package", pkgName, "err", err)
 						continue
 					}
 
 					var installDate time.Time
 					var receipt installReceipt
-					isDirect := true // Default to direct if no receipt
+					isDirect := true
 
 					if json.Unmarshal(receiptData, &receipt) == nil {
 						if receipt.Time > 0 {
@@ -131,16 +128,22 @@ func (b *BrewBackend) LoadPackages() (chan []Package, error) {
 					verPath := filepath.Join(pkgPath, verEntry.Name())
 					size := calculateSize(verPath)
 
-					results <- Package{
+					pkg := Package{
 						Name:     pkgName,
 						Version:  verEntry.Name(),
 						Size:     size,
 						Date:     installDate,
 						IsDirect: isDirect,
 						IsFrozen: pinnedFormulae[pkgName],
-						DB:       "Homebrew",
+						IsOrphan: orphanNames[pkgName],
+						DB:       "brew",
 					}
 
+					if newVer, ok := outdated[pkg.Name]; ok && newVer != pkg.Version {
+						pkg.NewVersion = newVer
+					}
+
+					load(pkg)
 					break
 				}
 			})
@@ -153,7 +156,7 @@ func (b *BrewBackend) LoadPackages() (chan []Package, error) {
 					continue
 				}
 
-				loadWg.Go(func() {
+				wg.Go(func() {
 					caskName := entry.Name()
 					semaphore <- struct{}{}
 					defer func() { <-semaphore }()
@@ -162,132 +165,30 @@ func (b *BrewBackend) LoadPackages() (chan []Package, error) {
 					size := getCaskSize(caskroomPath, caskName, version)
 					installedDate, _ := getCaskMetadata(caskroomPath, caskName, version)
 
-					results <- Package{
+					pkg := Package{
 						Name:     caskName,
 						Version:  version,
 						Size:     size,
 						Date:     installedDate,
-						IsDirect: true, // Casks are always direct installs
+						IsDirect: true,
 						IsFrozen: false,
+						IsOrphan: false,
 						DB:       "brew/Cask",
 					}
+
+					if newVer, ok := outdated[pkg.Name]; ok && newVer != pkg.Version {
+						pkg.NewVersion = newVer
+					}
+
+					load(pkg)
 				})
 			}
 		}
-
-		go func() {
-			loadWg.Wait()
-			close(results)
-		}()
-
-		for pkg := range results {
-			packages = append(packages, pkg)
-		}
-
-		wg.Go(func() { pkgsChan <- packages })
-
-		outdated := getOutdatedVersions()
-		for i := range packages {
-			if newVer, ok := outdated[packages[i].Name]; ok && newVer != packages[i].Version {
-				packages[i].NewVersion = newVer
-			}
-		}
-
-		wg.Go(func() { pkgsChan <- packages })
 	})
-
-	go func() {
-		wg.Wait()
-		close(pkgsChan)
-		slog.Info("time to map all packages and check updates", "time", time.Since(start))
-	}()
-
-	return pkgsChan, nil
 }
 
 func (b *BrewBackend) Update() (func() error, chan OperationResult) {
 	return createNormalCmd("update", "brew", "update")
-}
-
-func (b *BrewBackend) GetOrphanPackages() ([]Package, error) {
-	cmd := exec.Command("brew", "autoremove", "--dry-run")
-	output, err := cmd.Output()
-	if err != nil {
-		return []Package{}, nil
-	}
-
-	cellarCmd := exec.Command("brew", "--cellar")
-	cellarOutput, err := cellarCmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get cellar path: %w", err)
-	}
-	cellarPath := strings.TrimSpace(string(cellarOutput))
-
-	pinnedFormulae := getPinnedFormulae()
-	orphans := make([]Package, 0)
-
-	for line := range strings.SplitSeq(string(output), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || !strings.Contains(line, "Would remove:") {
-			if strings.HasPrefix(line, "==>") {
-				continue
-			}
-			if line == "" {
-				continue
-			}
-
-			pkgName := strings.Fields(line)[0]
-			if pkgName == "" {
-				continue
-			}
-
-			pkgPath := filepath.Join(cellarPath, pkgName)
-			if _, err := os.Stat(pkgPath); err != nil {
-				continue
-			}
-
-			installedVersion, _ := getInstalledVersion(cellarPath, pkgName)
-			verPath := filepath.Join(pkgPath, installedVersion)
-
-			root, err := os.OpenRoot(verPath)
-			if err != nil {
-				slog.Warn("could not open folder", "verPath", verPath)
-				continue
-			}
-			receiptFile := "INSTALL_RECEIPT.json"
-			receiptData, err := root.ReadFile(receiptFile)
-
-			if err != nil {
-				slog.Warn("could not open file", "receipt", receiptFile)
-				continue
-			}
-
-			var installDate time.Time
-			var receipt installReceipt
-
-			if json.Unmarshal(receiptData, &receipt) == nil && receipt.Time > 0 {
-				installDate = time.Unix(receipt.Time, 0)
-			}
-
-			if installDate.IsZero() {
-				installDate = time.Now()
-			}
-
-			size := calculateSize(verPath)
-
-			orphans = append(orphans, Package{
-				Name:     pkgName,
-				Version:  installedVersion,
-				Size:     size,
-				Date:     installDate,
-				IsDirect: false,
-				IsFrozen: pinnedFormulae[pkgName],
-				DB:       "homebrew/formulae",
-			})
-		}
-	}
-
-	return orphans, nil
 }
 
 func getInstalledVersion(cellarPath, pkgName string) (string, error) {
@@ -336,7 +237,6 @@ func getCaskSize(caskroomPath, caskName, version string) int64 {
 			continue
 		}
 
-		// Only count if it's NOT a symlink (real copy)
 		if info.Mode()&os.ModeSymlink == 0 {
 			size += calculateSize(appPath)
 			break
@@ -349,16 +249,13 @@ func getCaskSize(caskroomPath, caskName, version string) int64 {
 func getCaskMetadata(caskroomPath, caskName, version string) (time.Time, error) {
 	metadataPath := filepath.Join(caskroomPath, caskName, version, ".metadata")
 
-	// Check if .metadata is a directory with timestamped subdirs
 	entries, err := os.ReadDir(metadataPath)
 	if err == nil && len(entries) > 0 {
-		// Use first (usually only one) timestamp directory
 		if timestamp, err := parseTimestampDir(entries[0].Name()); err == nil {
 			return timestamp, nil
 		}
 	}
 
-	// Fallback: check directory mod time
 	if info, err := os.Stat(filepath.Join(caskroomPath, caskName, version)); err == nil {
 		return info.ModTime(), nil
 	}
@@ -367,7 +264,6 @@ func getCaskMetadata(caskroomPath, caskName, version string) (time.Time, error) 
 }
 
 func parseTimestampDir(dirName string) (time.Time, error) {
-	// Directory name is usually a Unix timestamp like "1234567890"
 	var timestamp int64
 	_, err := fmt.Sscanf(dirName, "%d", &timestamp)
 	if err != nil {
@@ -383,7 +279,6 @@ func getCaskVersion(caskroomPath, caskName string) (string, error) {
 		return "", err
 	}
 
-	// Usually only one version installed, pick the newest by mod time
 	var newestVer string
 	var newestTime time.Time
 
@@ -402,7 +297,6 @@ func getCaskVersion(caskroomPath, caskName string) (string, error) {
 	}
 
 	if newestVer == "" && len(versions) > 0 {
-		// Fallback: use first directory
 		newestVer = versions[0].Name()
 	}
 
@@ -472,4 +366,36 @@ func getPinnedFormulae() map[string]bool {
 	}
 
 	return pinned
+}
+
+func getOrphanNames() map[string]bool {
+	orphans := make(map[string]bool)
+
+	cmd := exec.Command("brew", "autoremove", "--dry-run")
+	output, err := cmd.Output()
+	if err != nil {
+		return orphans
+	}
+
+	for line := range strings.SplitSeq(string(output), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.Contains(line, "Would remove:") {
+			if strings.HasPrefix(line, "==>") {
+				continue
+			}
+			if line == "" {
+				continue
+			}
+
+			pkgName := strings.Fields(line)[0]
+			if pkgName != "" {
+				orphans[pkgName] = true
+			}
+		}
+	}
+
+	return orphans
+}
+func (b BrewBackend) String() string {
+	return b.Name()
 }

@@ -21,15 +21,6 @@ const (
 )
 
 type TableInitEvent struct{}
-type LoadOrphans struct{}
-type LoadPackages struct{}
-
-func NewLoadOrphans() tea.Msg {
-	return LoadOrphans{}
-}
-func NewLoadPackages() tea.Msg {
-	return LoadPackages{}
-}
 
 type tableKeys struct {
 	customTableKey *customTableKeyMap
@@ -105,26 +96,27 @@ func newTable() tableModel {
 }
 
 func (m tableModel) Init() tea.Cmd {
-	return func() tea.Msg { return TableInitEvent{} }
-}
-
-type PackageStreamMsg struct {
-	pkgs []backend.Package
-}
-
-type OrphanStreamMsg struct {
-	done bool
-	pkgs []backend.Package
-}
-
-func (m tableModel) listenOrphans() tea.Msg {
-	data, ok := <-m.orphanStream
-	if !ok {
-		slog.Info("orphan channel is closed")
-		return OrphanStreamMsg{done: true}
+	return func() tea.Msg {
+		go func() {
+			pkgChan, err := backend.LoadAllPackages()
+			if err != nil {
+				slog.Error("could not load packages", "err", err)
+				return
+			}
+			for data := range pkgChan {
+				Program.Send(PackageLoadedMsg{pkgs: data})
+			}
+			Program.Send(FinishedLoadingPackagesMsg{})
+			slog.Info("channel is closed loaded all packages")
+		}()
+		return TableInitEvent{}
 	}
-	return OrphanStreamMsg{pkgs: data}
 }
+
+type PackageLoadedMsg struct {
+	pkgs backend.Package
+}
+type FinishedLoadingPackagesMsg struct{}
 
 func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var commands []tea.Cmd
@@ -135,90 +127,43 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.tables[i].Columns = m.columns
 			initCmds = append(initCmds, m.tables[i].Init())
 		}
-		commands = append(commands, NewLoadPackages, NewLoadOrphans)
 		commands = append(commands, initCmds...)
-	case LoadPackages:
-		go func() {
-			pkgChan, err := backend.LoadAllPackages()
-			if err != nil {
-				slog.Error("could not load packages", "err", err)
-				return
-			}
-			for data := range pkgChan {
-				Program.Send(PackageStreamMsg{pkgs: data})
-			}
-			slog.Info("channel is closed loaded all packages")
-		}()
-
-	case LoadOrphans:
-		// orphanStream, err := backend.GetAllOrphanPackages()
-		// if err != nil {
-		// 	slog.Error("could not load orphans", "err", err)
-		// 	break
-		// }
-		// m.orphanStream = orphanStream
-		// commands = append(commands, m.listenOrphans)
-
 	case DisplayResizeEvent:
 		for i := range m.tables {
 			m.tables[i].Height = msg.height - HeaderHeight - FooterHeight
 			m.tables[i].Width = msg.width
 		}
+	case FinishedLoadingPackagesMsg:
+		for i := range m.tables {
+			m.tables[i].SetLoading(false)
+		}
+		return m, tea.Batch(commands...)
 
-	case PackageStreamMsg:
-		if len(msg.pkgs) > 0 {
-			for i := range m.tables[:3] {
+	case PackageLoadedMsg:
+		pkg := msg.pkgs
+		row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.DB, pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
+		addToTable := func(i int) {
+			if m.tables[i].loading {
 				m.tables[i].SetLoading(false)
 			}
-		}
-
-		pkgs := msg.pkgs
-		for _, pkg := range pkgs {
-			row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.DB, pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
-			if pkg.IsDirect {
-				m.tables[0].addRow(row)
-				if pkg.NewVersion != "" {
-					m.tables[0].addStyleRow(pkg.Name, updateAvailableRow)
-				}
-				if pkg.IsFrozen {
-					m.tables[0].addStyleRow(pkg.Name, frozenRowStyle)
-				}
-			} else {
-				m.tables[1].addRow(row)
-				if pkg.NewVersion != "" {
-					m.tables[1].addStyleRow(pkg.Name, updateAvailableRow)
-				}
-				if pkg.IsFrozen {
-					m.tables[1].addStyleRow(pkg.Name, frozenRowStyle)
-				}
-			}
-			m.tables[2].addRow(row)
+			m.tables[i].addRow(row)
 			if pkg.NewVersion != "" {
-				m.tables[2].addStyleRow(pkg.Name, updateAvailableRow)
+				m.tables[i].addStyleRow(pkg.Name, updateAvailableRow)
 			}
 			if pkg.IsFrozen {
-				m.tables[2].addStyleRow(pkg.Name, frozenRowStyle)
+				m.tables[i].addStyleRow(pkg.Name, frozenRowStyle)
 			}
 		}
-	case OrphanStreamMsg:
-		if len(msg.pkgs) > 0 {
-			m.tables[3].SetLoading(false)
+		addToTable(2)
+		if pkg.IsDirect {
+			addToTable(0)
+		} else {
+			addToTable(1)
+		}
+		if pkg.IsOrphan {
+			addToTable(3)
 		}
 
-		for _, pkg := range msg.pkgs {
-			row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.DB, pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
-			m.tables[3].addRow(row)
-			if pkg.NewVersion != "" {
-				m.tables[3].addStyleRow(pkg.Name, updateAvailableRow)
-			}
-			if pkg.IsFrozen {
-				m.tables[3].addStyleRow(pkg.Name, frozenRowStyle)
-			}
-		}
-
-		if !msg.done {
-			commands = append(commands, m.listenOrphans)
-		}
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.remove):
@@ -334,7 +279,6 @@ func (m tableModel) footerUpdates(msg tea.Msg) (tableModel, tea.Cmd) {
 			}
 
 		}
-
 	}
 
 	return m, tea.Batch(commands...)

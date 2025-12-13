@@ -34,12 +34,7 @@ func (f *FlatpakBackend) IsAvailable() bool {
 	return true
 }
 
-func (f *FlatpakBackend) LoadPackages() (chan []Package, error) {
-	start := time.Now()
-
-	var wg sync.WaitGroup
-	pkgsChan := make(chan []Package, 1)
-
+func (f *FlatpakBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 	wg.Go(func() {
 		cmd := exec.Command("flatpak", "list", "--app", "--columns=application,name,version,size,installation")
 		output, err := cmd.Output()
@@ -48,7 +43,6 @@ func (f *FlatpakBackend) LoadPackages() (chan []Package, error) {
 			return
 		}
 
-		packages := make([]Package, 0)
 		lines := strings.SplitSeq(string(output), "\n")
 
 		for line := range lines {
@@ -62,11 +56,10 @@ func (f *FlatpakBackend) LoadPackages() (chan []Package, error) {
 				continue
 			}
 
-			// Parse fields: application, name, version, size, installation
 			var sizeIdx int
 			for i := len(fields) - 1; i >= 0; i-- {
 				if strings.HasSuffix(fields[i], "B") {
-					sizeIdx = i - 1 // Size value is before unit
+					sizeIdx = i - 1
 					break
 				}
 			}
@@ -84,27 +77,20 @@ func (f *FlatpakBackend) LoadPackages() (chan []Package, error) {
 			size := parseFlatpakSize(sizeStr)
 			installDate := getFlatpakInstallDate(name)
 
-			packages = append(packages, Package{
+			pkg := Package{
 				Name:     name,
 				Version:  version,
 				Size:     size,
 				Date:     installDate,
-				IsDirect: true, // All flatpak apps are direct installs
+				IsDirect: true,
 				IsFrozen: false,
+				IsOrphan: false,
 				DB:       "flatpak",
-			})
+			}
+
+			load(pkg)
 		}
-
-		wg.Go(func() { pkgsChan <- packages })
 	})
-
-	go func() {
-		wg.Wait()
-		close(pkgsChan)
-		slog.Info("time to load flatpak packages", "time", time.Since(start))
-	}()
-
-	return pkgsChan, nil
 }
 
 func (f *FlatpakBackend) Update() (func() error, chan OperationResult) {
@@ -115,10 +101,6 @@ func (f *FlatpakBackend) Update() (func() error, chan OperationResult) {
 		resultChan <- OperationResult{Error: err}
 		return err
 	}, resultChan
-}
-
-func (f *FlatpakBackend) GetOrphanPackages() ([]Package, error) {
-	return make([]Package, 0), nil
 }
 
 func parseFlatpakSize(sizeStr string) int64 {
@@ -166,4 +148,7 @@ func getFlatpakInstallDate(appID string) time.Time {
 	}
 
 	return time.Now()
+}
+func (f FlatpakBackend) String() string {
+	return f.Name()
 }

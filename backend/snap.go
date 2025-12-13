@@ -1,5 +1,3 @@
-//go:build snap || all_backends
-
 package backend
 
 import (
@@ -27,18 +25,15 @@ func (s *SnapBackend) IsAvailable() bool {
 	if _, err := exec.LookPath("snap"); err != nil {
 		return false
 	}
-	socketPath := "/run/snapd.socket"
-	if _, err := os.Stat(socketPath); err != nil {
+	cmd := exec.Command("snap", "list")
+	if err := cmd.Run(); err != nil {
 		return false
 	}
 	return true
 }
 
-func (s *SnapBackend) LoadPackages() (chan []Package, error) {
+func (s *SnapBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 	start := time.Now()
-
-	var wg sync.WaitGroup
-	pkgsChan := make(chan []Package, 2)
 
 	wg.Go(func() {
 		cmd := exec.Command("snap", "list")
@@ -49,7 +44,8 @@ func (s *SnapBackend) LoadPackages() (chan []Package, error) {
 		}
 
 		heldPkgs := getHeldSnaps()
-		packages := make([]Package, 0)
+		updatable := getUpdatableSnaps()
+
 		lines := strings.SplitSeq(string(output), "\n")
 
 		first := true
@@ -81,41 +77,29 @@ func (s *SnapBackend) LoadPackages() (chan []Package, error) {
 			size := getSnapSize(name)
 			installDate := getSnapInstallDate(name)
 
-			packages = append(packages, Package{
+			pkg := Package{
 				Name:     name,
 				Version:  version,
 				Size:     size,
 				Date:     installDate,
 				IsDirect: isDirect,
 				IsFrozen: heldPkgs[name],
+				IsOrphan: false,
 				DB:       "snap",
-			})
-		}
-
-		wg.Go(func() { pkgsChan <- packages })
-
-		// Check for updates
-		updatable := getUpdatableSnaps()
-		for i := range packages {
-			if newVer, ok := updatable[packages[i].Name]; ok && newVer != packages[i].Version {
-				packages[i].NewVersion = newVer
 			}
+
+			if newVer, ok := updatable[pkg.Name]; ok && newVer != pkg.Version {
+				pkg.NewVersion = newVer
+			}
+
+			load(pkg)
 		}
 
-		wg.Go(func() { pkgsChan <- packages })
+		slog.Info("loaded packages from snap", "time", time.Since(start))
 	})
-
-	go func() {
-		wg.Wait()
-		close(pkgsChan)
-		slog.Info("time to load snap packages", "time", time.Since(start))
-	}()
-
-	return pkgsChan, nil
 }
 
 func (s *SnapBackend) Update() (func() error, chan OperationResult) {
-	// Update functionality is disabled project-wide
 	resultChan := make(chan OperationResult, 1)
 	err := fmt.Errorf("snap update not implemented")
 
@@ -123,10 +107,6 @@ func (s *SnapBackend) Update() (func() error, chan OperationResult) {
 		resultChan <- OperationResult{Error: err}
 		return err
 	}, resultChan
-}
-
-func (s *SnapBackend) GetOrphanPackages() ([]Package, error) {
-	return []Package{}, nil
 }
 
 func isDirectInstall(name, notes string) bool {
@@ -154,7 +134,6 @@ func getSnapSize(name string) int64 {
 		return 0
 	}
 
-	// Get the most recent snap file (highest revision)
 	var latestSnap string
 	var latestTime time.Time
 	for _, match := range matches {
@@ -185,7 +164,6 @@ func getSnapInstallDate(name string) time.Time {
 		return time.Now()
 	}
 
-	// Get the most recent snap file modification time
 	var latestTime time.Time
 	for _, match := range matches {
 		if info, err := os.Stat(match); err == nil {
@@ -208,12 +186,9 @@ func getHeldSnaps() map[string]bool {
 	cmd := exec.Command("snap", "refresh", "--list")
 	output, err := cmd.Output()
 	if err != nil {
-		// Command might fail if no updates available, which is fine
 		return held
 	}
 
-	// Parse output to find held packages
-	// Held packages typically show "hold: forever" or similar status
 	lines := strings.SplitSeq(string(output), "\n")
 	for line := range lines {
 		if strings.Contains(line, "held") || strings.Contains(line, "hold") {
@@ -233,13 +208,11 @@ func getUpdatableSnaps() map[string]string {
 	cmd := exec.Command("snap", "refresh", "--list")
 	output, err := cmd.Output()
 	if err != nil {
-		// Command returns non-zero if no updates available
 		return updatable
 	}
 
 	lines := strings.SplitSeq(string(output), "\n")
 
-	// Skip header line
 	first := true
 	for line := range lines {
 		if first {
@@ -263,4 +236,7 @@ func getUpdatableSnaps() map[string]string {
 	}
 
 	return updatable
+}
+func (s SnapBackend) String() string {
+	return s.Name()
 }

@@ -30,7 +30,6 @@ func (p *PipBackend) Name() string {
 }
 
 func (p *PipBackend) IsAvailable() bool {
-	// Check for pip3 first, then pip
 	for _, cmd := range []string{"pip3", "pip"} {
 		if _, err := exec.LookPath(cmd); err == nil {
 			testCmd := exec.Command(cmd, "list", "--format=json")
@@ -42,88 +41,66 @@ func (p *PipBackend) IsAvailable() bool {
 	return false
 }
 
-func (p *PipBackend) LoadPackages() (chan []Package, error) {
-	start := time.Now()
-
+func (p *PipBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 	pipCmd := getPipCommand()
 	if pipCmd == "" {
-		return nil, fmt.Errorf("no pip command available")
+		slog.Error("no pip command available")
+		return
 	}
 
 	sitePackages := getSitePackagesPath(pipCmd)
 	if sitePackages == "" {
-		return nil, fmt.Errorf("could not determine site-packages location")
+		slog.Error("could not determine site-packages location")
+		return
 	}
 
-	var wg sync.WaitGroup
-	pkgsChan := make(chan []Package, 2)
+	pipPackages := getPipList(pipCmd)
 
+	semaphore := make(chan struct{}, 16)
 	wg.Go(func() {
-		packages := make([]Package, 0)
-		results := make(chan Package, 100)
-		var loadWg sync.WaitGroup
-		semaphore := make(chan struct{}, 8)
-
-		// Get pip packages
-		pipPackages := getPipList(pipCmd)
-
 		for _, pkgInfo := range pipPackages {
-			loadWg.Go(func() {
+			wg.Go(func() {
 				semaphore <- struct{}{}
 				defer func() { <-semaphore }()
 
 				pkg := processPipPackage(pkgInfo.Name, pkgInfo.Version, sitePackages)
 				if pkg.Name != "" {
-					results <- pkg
+					load(pkg)
 				}
 			})
 		}
-
-		// Get pipx packages if available
-		if _, err := exec.LookPath("pipx"); err == nil {
-			pipxPackages := getPipxList()
-			for _, pkgInfo := range pipxPackages {
-				loadWg.Go(func() {
-					semaphore <- struct{}{}
-					defer func() { <-semaphore }()
-
-					pkg := processPipxPackage(pkgInfo.Name, pkgInfo.Version)
-					if pkg.Name != "" {
-						results <- pkg
-					}
-				})
-			}
-		}
-
-		go func() {
-			loadWg.Wait()
-			close(results)
-		}()
-
-		for pkg := range results {
-			packages = append(packages, pkg)
-		}
-
-		wg.Go(func() { pkgsChan <- packages })
-
-		// Check for updates
-		outdated := getPipOutdated(pipCmd)
-		for i := range packages {
-			if newVer, ok := outdated[packages[i].Name]; ok && newVer != packages[i].Version {
-				packages[i].NewVersion = newVer
-			}
-		}
-
-		wg.Go(func() { pkgsChan <- packages })
 	})
 
-	go func() {
-		wg.Wait()
-		close(pkgsChan)
-		slog.Info("time to load pip packages", "time", time.Since(start))
-	}()
+	outdated := getPipOutdated(pipCmd)
+	for _, pkgInfo := range pipPackages {
+		wg.Go(func() {
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
 
-	return pkgsChan, nil
+			pkg := processPipPackage(pkgInfo.Name, pkgInfo.Version, sitePackages)
+			if pkg.Name != "" {
+				if newVer, ok := outdated[pkg.Name]; ok && newVer != pkg.Version {
+					pkg.NewVersion = newVer
+					load(pkg)
+				}
+			}
+		})
+	}
+
+	if _, err := exec.LookPath("pipx"); err == nil {
+		pipxPackages := getPipxList()
+		for _, pkgInfo := range pipxPackages {
+			wg.Go(func() {
+				semaphore <- struct{}{}
+				defer func() { <-semaphore }()
+
+				pkg := processPipxPackage(pkgInfo.Name, pkgInfo.Version)
+				if pkg.Name != "" {
+					load(pkg)
+				}
+			})
+		}
+	}
 }
 
 func (p *PipBackend) Update() (func() error, chan OperationResult) {
@@ -134,10 +111,6 @@ func (p *PipBackend) Update() (func() error, chan OperationResult) {
 		resultChan <- OperationResult{Error: err}
 		return err
 	}, resultChan
-}
-
-func (p *PipBackend) GetOrphanPackages() ([]Package, error) {
-	return []Package{}, nil
 }
 
 func getPipCommand() string {
@@ -157,7 +130,7 @@ func getSitePackagesPath(pipCmd string) string {
 	}
 
 	for line := range strings.SplitSeq(string(output), "\n") {
-		if after, ok :=strings.CutPrefix(line, "Location: "); ok  {
+		if after, ok := strings.CutPrefix(line, "Location: "); ok {
 			return after
 		}
 	}
@@ -186,7 +159,6 @@ func getPipxList() []pipPackage {
 	cmd := exec.Command("pipx", "list", "--json")
 	output, err := cmd.Output()
 	if err != nil {
-		// pipx might not have --json flag in older versions, try regular output
 		return getPipxListPlain()
 	}
 
@@ -241,18 +213,15 @@ func getPipxListPlain() []pipPackage {
 }
 
 func processPipPackage(name, version, sitePackages string) Package {
-	// Find package directory in site-packages
 	distInfoDir := findDistInfoDir(sitePackages, name, version)
 	if distInfoDir == "" {
 		return Package{}
 	}
 
-	// Calculate size
 	pkgDir := getPackageDir(sitePackages, name)
 	size := calculateSize(pkgDir)
 	size += calculateSize(distInfoDir)
 
-	// Get install date from dist-info directory
 	info, err := os.Stat(distInfoDir)
 	installDate := time.Now()
 	if err == nil {
@@ -266,12 +235,12 @@ func processPipPackage(name, version, sitePackages string) Package {
 		Date:     installDate,
 		IsDirect: true,
 		IsFrozen: false,
+		IsOrphan: false,
 		DB:       "pip",
 	}
 }
 
 func processPipxPackage(name, version string) Package {
-	// pipx stores packages in ~/.local/share/pipx/venvs/<package>
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return Package{}
@@ -297,19 +266,18 @@ func processPipxPackage(name, version string) Package {
 		Date:     installDate,
 		IsDirect: true,
 		IsFrozen: false,
+		IsOrphan: false,
 		DB:       "pipx",
 	}
 }
 
 func findDistInfoDir(sitePackages, name, version string) string {
-	// Try exact match first: package-version.dist-info
 	normalizedName := strings.ReplaceAll(strings.ToLower(name), "_", "-")
 	distInfo := filepath.Join(sitePackages, fmt.Sprintf("%s-%s.dist-info", normalizedName, version))
 	if _, err := os.Stat(distInfo); err == nil {
 		return distInfo
 	}
 
-	// Try pattern match for cases with different normalization
 	pattern := filepath.Join(sitePackages, "*.dist-info")
 	matches, _ := filepath.Glob(pattern)
 
@@ -330,7 +298,6 @@ func findDistInfoDir(sitePackages, name, version string) string {
 }
 
 func getPackageDir(sitePackages, name string) string {
-	// Try different naming conventions
 	candidates := []string{
 		name,
 		strings.ReplaceAll(name, "-", "_"),
@@ -371,4 +338,8 @@ func getPipOutdated(pipCmd string) map[string]string {
 	}
 
 	return outdated
+}
+
+func (p PipBackend) String() string {
+	return p.Name()
 }

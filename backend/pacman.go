@@ -3,11 +3,11 @@
 package backend
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,102 +34,169 @@ func (p *PacmanBackend) IsAvailable() bool {
 	return true
 }
 
-func (p *PacmanBackend) LoadPackages() (chan []Package, error) {
-	start := time.Now()
+func (p *PacmanBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 
-	var wg sync.WaitGroup
-	pkgsChan := make(chan []Package, 2)
+	cmd := exec.Command("pacman", "-Qi")
+	packagesParagraphOutput, err := cmd.Output()
+	if err != nil {
+		slog.Error("Failed to get package info", "err", err)
+		return
+	}
+
+	pinnedPkgs := getPinnedPackages()
+	foreignPkgs := getForeignPackages()
 
 	wg.Go(func() {
-		cmd := exec.Command("pacman", "-Qi")
-		output, err := cmd.Output()
-		if err != nil {
-			slog.Error("Failed to get package info", "err", err)
-			return
-		}
-
 		explicitPkgs := getExplicitPackages()
-		pinnedPkgs := getPinnedPackages()
 		upgradable := getUpgradablePackages()
-		foreignPkgs := getForeignPackages()
 
-		packages := parsePackageInfo(string(output), explicitPkgs, pinnedPkgs, upgradable, foreignPkgs)
-		regularPkgs := make([]Package, 0)
 		aurPkgs := make([]Package, 0)
-		aurPkgNames := make([]string, 0)
+		paragraphs := strings.SplitSeq(string(packagesParagraphOutput), "\n\n")
+		for para := range paragraphs {
+			if para == "" {
+				continue
+			}
+			pkg := parseParagraph(para)
 
-		for _, pkg := range packages {
-			if pkg.DB == "pacman/AUR" {
+			if pkg.Name == "" {
+				continue
+			}
+
+			pkg.IsDirect = explicitPkgs[pkg.Name]
+			pkg.IsFrozen = pinnedPkgs[pkg.Name]
+
+			if newVer, ok := upgradable[pkg.Name]; ok {
+				pkg.NewVersion = newVer
+			}
+
+			if foreignPkgs[pkg.Name] {
+				pkg.DB = "pacman/AUR"
 				aurPkgs = append(aurPkgs, pkg)
-				aurPkgNames = append(aurPkgNames, pkg.Name)
 			} else {
 				pkg.DB = "pacman"
-				regularPkgs = append(regularPkgs, pkg)
 			}
-		}
 
-		wg.Go(func() { pkgsChan <- regularPkgs })
-
-		// Check AUR versions
-		newVersions, err := CheckAURVersions(aurPkgNames)
-		if err != nil {
-			slog.Warn("Could not check AUR versions", "err", err)
-		} else {
-			for i := range aurPkgs {
-				if newVer, ok := newVersions[aurPkgs[i].Name]; ok && newVer != aurPkgs[i].Version {
-					aurPkgs[i].NewVersion = newVer
+			// If no install date, try to get from filesystem
+			if pkg.Date.IsZero() {
+				pkgPath := filepath.Join("/var/lib/pacman/local", pkg.Name+"-"+pkg.Version)
+				if info, err := os.Stat(pkgPath); err == nil {
+					pkg.Date = info.ModTime()
 				}
 			}
+
+			load(pkg)
 		}
 
-		wg.Go(func() { pkgsChan <- aurPkgs })
+		loadAURNewVersions(aurPkgs, load)
 	})
 
-	go func() {
-		wg.Wait()
-		close(pkgsChan)
-		slog.Info("time to map all packages and sync with aur", "time", time.Since(start))
-	}()
-
-	return pkgsChan, nil
-}
-
-func (p *PacmanBackend) Update() (func() error, chan OperationResult) {
-	return CreatePrivilegedCmd(p.Name()+"-update", "pacman", "-Syy", "--noconfirm")
-}
-
-func (p *PacmanBackend) GetOrphanPackages() ([]Package, error) {
-	cmd := exec.Command("pacman", "-Qtdq")
+	cmd = exec.Command("pacman", "-Qtdq")
 	output, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-			return []Package{}, nil
+			slog.Error("could not orphan packages", "backend", p.Name(), "err", err)
+			return
 		}
-		return nil, fmt.Errorf("failed to get orphans: %w", err)
+		slog.Error("could not orphan packages", "backend", p.Name(), "err", err)
+		return
 	}
 
 	orphanNames := strings.Fields(strings.TrimSpace(string(output)))
 	if len(orphanNames) == 0 {
-		return []Package{}, nil
+		return
 	}
 
-	// Get detailed info for orphan packages
-	args := append([]string{"-Qi"}, orphanNames...)
-	cmd = exec.Command("pacman", args...)
-	output, err = cmd.Output()
+	paragraphs := strings.SplitSeq(string(packagesParagraphOutput), "\n\n")
+	for para := range paragraphs {
+		if para == "" {
+			continue
+		}
+		pkg := parseParagraph(para)
+
+		if pkg.Name == "" {
+			continue
+		}
+		if !slices.Contains(orphanNames, pkg.Name) {
+			continue
+		}
+
+		pkg.IsOrphan = true
+		pkg.IsDirect = false
+		pkg.IsFrozen = pinnedPkgs[pkg.Name]
+
+		if foreignPkgs[pkg.Name] {
+			pkg.DB = "pacman/AUR"
+		} else {
+			pkg.DB = "pacman"
+		}
+
+		// If no install date, try to get from filesystem
+		if pkg.Date.IsZero() {
+			pkgPath := filepath.Join("/var/lib/pacman/local", pkg.Name+"-"+pkg.Version)
+			if info, err := os.Stat(pkgPath); err == nil {
+				pkg.Date = info.ModTime()
+			}
+		}
+
+		load(pkg)
+	}
+}
+
+func loadAURNewVersions(pkgs []Package, load func(Package)) {
+	pkgNames := make([]string, 0)
+	for _, p := range pkgs {
+		pkgNames = append(pkgNames, p.Name)
+	}
+
+	newVersions, err := CheckAURVersions(pkgNames)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get orphan details: %w", err)
+		slog.Warn("Could not check AUR versions", "err", err)
+		return
+	}
+	for i := range pkgs {
+		if newVer, ok := newVersions[pkgs[i].Name]; ok && newVer != pkgs[i].Version {
+			pkgs[i].NewVersion = newVer
+			load(pkgs[i])
+		}
 	}
 
-	pinnedPkgs := getPinnedPackages()
-	packages := parsePackageInfo(string(output), make(map[string]bool), pinnedPkgs, make(map[string]string), make(map[string]bool))
+}
 
-	// Mark all as dependencies
-	for i := range packages {
-		packages[i].IsDirect = false
+func parseParagraph(para string) Package {
+	var pkg Package
+	lines := strings.SplitSeq(para, "\n")
+
+	for line := range lines {
+		if strings.HasPrefix(line, " ") {
+			continue // Skip continuation lines
+		}
+
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		switch key {
+		case "Name":
+			pkg.Name = value
+		case "Version":
+			pkg.Version = value
+		case "Installed Size":
+			pkg.Size = parseSize(value)
+		case "Install Date":
+			pkg.Date = parseDate(value)
+		case "Install Reason":
+			pkg.IsDirect = value == "Explicitly installed"
+		}
 	}
+	return pkg
+}
 
-	return packages, nil
+func (p *PacmanBackend) Update() (func() error, chan OperationResult) {
+	return CreatePrivilegedCmd(p.Name()+"-update", "pacman", "-Syy", "--noconfirm")
 }
 
 func getExplicitPackages() map[string]bool {
@@ -225,79 +292,6 @@ func getForeignPackages() map[string]bool {
 	return foreign
 }
 
-func parsePackageInfo(output string, explicitPkgs, pinnedPkgs map[string]bool, upgradable map[string]string, foreignPkgs map[string]bool) []Package {
-	packages := make([]Package, 0)
-	paragraphs := strings.SplitSeq(output, "\n\n")
-
-	for para := range paragraphs {
-		if para == "" {
-			continue
-		}
-
-		var pkg Package
-		lines := strings.SplitSeq(para, "\n")
-
-		for line := range lines {
-			if strings.HasPrefix(line, " ") {
-				continue // Skip continuation lines
-			}
-
-			parts := strings.SplitN(line, ":", 2)
-			if len(parts) != 2 {
-				continue
-			}
-
-			key := strings.TrimSpace(parts[0])
-			value := strings.TrimSpace(parts[1])
-
-			switch key {
-			case "Name":
-				pkg.Name = value
-			case "Version":
-				pkg.Version = value
-			case "Installed Size":
-				pkg.Size = parseSize(value)
-			case "Install Date":
-				pkg.Date = parseDate(value)
-			case "Install Reason":
-				pkg.IsDirect = value == "Explicitly installed"
-			}
-		}
-
-		if pkg.Name == "" {
-			continue
-		}
-
-		// Override IsDirect with explicit package list (more reliable)
-		pkg.IsDirect = explicitPkgs[pkg.Name]
-		pkg.IsFrozen = pinnedPkgs[pkg.Name]
-
-		// Check for updates
-		if newVer, ok := upgradable[pkg.Name]; ok {
-			pkg.NewVersion = newVer
-		}
-
-		// Check if AUR package
-		if foreignPkgs[pkg.Name] {
-			pkg.DB = "pacman/AUR"
-		} else {
-			pkg.DB = "pacman"
-		}
-
-		// If no install date, try to get from filesystem
-		if pkg.Date.IsZero() {
-			pkgPath := filepath.Join("/var/lib/pacman/local", pkg.Name+"-"+pkg.Version)
-			if info, err := os.Stat(pkgPath); err == nil {
-				pkg.Date = info.ModTime()
-			}
-		}
-
-		packages = append(packages, pkg)
-	}
-
-	return packages
-}
-
 func parseSize(sizeStr string) int64 {
 	// Format examples: "123.45 KiB", "12.34 MiB", "1.23 GiB"
 	fields := strings.Fields(sizeStr)
@@ -340,4 +334,8 @@ func parseDate(dateStr string) time.Time {
 	}
 
 	return time.Now()
+}
+
+func (p PacmanBackend) String() string {
+	return p.Name()
 }
