@@ -53,7 +53,7 @@ for arch in $ARCH; do
     echo "  Processing architecture: $arch"
     cd "${REPO_DIR}"
     dpkg-scanpackages --multiversion pool/ > "dists/${DIST}/${COMPONENT}/binary-${arch}/Packages"
-    gzip -9c "dists/${DIST}/${COMPONENT}/binary-${arch}/Packages" > "dists/${DIST}/${COMPONENT}/binary-${arch}/Packages.gz"
+    gzip -9nc "dists/${DIST}/${COMPONENT}/binary-${arch}/Packages" > "dists/${DIST}/${COMPONENT}/binary-${arch}/Packages.gz"
     cd -
 done
 
