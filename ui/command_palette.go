@@ -26,7 +26,7 @@ type commandPaletteModel struct {
 func newCommandPalette() commandPaletteModel {
 	commands := []Command{
 		{Icon: "📦", Name: "Browse Packages", Description: "View all installed packages", Action: NewChangeDisplay(newTable())},
-		{Icon: "🔄", Name: "Update System", Description: "Refresh package databases", Action: NewChangeDisplay(NewUpdateCommandView())},
+		// {Icon: "🔄", Name: "Update System", Description: "Refresh package databases", Action: NewChangeDisplay(NewUpdateCommandView())},
 		{Icon: "📝", Name: "Debug Console", Description: "Show application logs", Action: NewChangeDisplay(newDebug())},
 		// {Icon: "⬆️", Name: "Upgrade Packages", Description: "Upgrade all installed packages", Action: nil},
 		// {Icon: "🗑️", Name: "Remove Package", Description: "Uninstall selected package", Action: nil},
