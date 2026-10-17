@@ -51,17 +51,7 @@ func (p *PacmanBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 		upgradable := getUpgradablePackages()
 
 		aurPkgs := make([]Package, 0)
-		paragraphs := strings.SplitSeq(string(packagesParagraphOutput), "\n\n")
-		for para := range paragraphs {
-			if para == "" {
-				continue
-			}
-			pkg := parseParagraph(para)
-
-			if pkg.Name == "" {
-				continue
-			}
-
+		for _, pkg := range parsePacmanQi(string(packagesParagraphOutput)) {
 			pkg.IsDirect = explicitPkgs[pkg.Name]
 			pkg.IsFrozen = pinnedPkgs[pkg.Name]
 
@@ -106,16 +96,7 @@ func (p *PacmanBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 		return
 	}
 
-	paragraphs := strings.SplitSeq(string(packagesParagraphOutput), "\n\n")
-	for para := range paragraphs {
-		if para == "" {
-			continue
-		}
-		pkg := parseParagraph(para)
-
-		if pkg.Name == "" {
-			continue
-		}
+	for _, pkg := range parsePacmanQi(string(packagesParagraphOutput)) {
 		if !slices.Contains(orphanNames, pkg.Name) {
 			continue
 		}
@@ -160,6 +141,26 @@ func loadAURNewVersions(pkgs []Package, load func(Package)) {
 		}
 	}
 
+}
+
+func parsePacmanQi(out string) []Package {
+	var pkgs []Package
+
+	paragraphs := strings.SplitSeq(out, "\n\n")
+	for para := range paragraphs {
+		if para == "" {
+			continue
+		}
+		pkg := parseParagraph(para)
+
+		if pkg.Name == "" {
+			continue
+		}
+
+		pkgs = append(pkgs, pkg)
+	}
+
+	return pkgs
 }
 
 func parseParagraph(para string) Package {
@@ -226,7 +227,13 @@ func getPinnedPackages() map[string]bool {
 		return pinned
 	}
 
-	for line := range strings.SplitSeq(string(data), "\n") {
+	return parsePacmanIgnorePkg(string(data))
+}
+
+func parsePacmanIgnorePkg(conf string) map[string]bool {
+	pinned := make(map[string]bool)
+
+	for line := range strings.SplitSeq(conf, "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "IgnorePkg") && strings.Contains(line, "=") {
 			parts := strings.SplitN(line, "=", 2)
@@ -256,7 +263,13 @@ func getUpgradablePackages() map[string]string {
 		return upgradable
 	}
 
-	for line := range strings.SplitSeq(string(output), "\n") {
+	return parsePacmanQu(string(output))
+}
+
+func parsePacmanQu(out string) map[string]string {
+	upgradable := make(map[string]string)
+
+	for line := range strings.SplitSeq(out, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) >= 4 {
 			// Format: package_name old_version -> new_version
