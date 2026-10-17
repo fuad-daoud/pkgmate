@@ -13,6 +13,9 @@ type Column struct {
 	Title string
 }
 
+// defaultEmptyState is the text shown for a table with no rows after loading.
+const defaultEmptyState = "🔍 No results found"
+
 type Row struct {
 	Key   string
 	Cells []string
@@ -54,6 +57,9 @@ type customTable struct {
 	headerStyle  lipgloss.Style
 	cursorStyler Styler
 	cellStyle    lipgloss.Style
+	// emptyState is shown by View when the table holds no rows at all after
+	// loading. It defaults to the generic no-results text.
+	emptyState string
 }
 
 func newCustomTable(label string) *customTable {
@@ -85,6 +91,7 @@ func newCustomTable(label string) *customTable {
 		cursorStyler: cursorRowStyler,
 		cellStyle:    lipgloss.NewStyle().Padding(0, 1),
 		StyledRows:   make(map[string]lipgloss.Style),
+		emptyState:   defaultEmptyState,
 	}
 }
 
@@ -231,7 +238,14 @@ func (m *customTable) View() string {
 			Foreground(lipgloss.Color("#888888")).
 			Italic(true)
 
-		content := emptyStyle.Render("🔍 No results found")
+		// A table that never held a row shows its own empty state; a table whose
+		// rows were all filtered away shows the generic no-results text.
+		text := defaultEmptyState
+		if len(m.OriginalRows) == 0 && m.emptyState != "" {
+			text = m.emptyState
+		}
+
+		content := emptyStyle.Render(text)
 
 		emptyView := lipgloss.Place(
 			m.Width,
