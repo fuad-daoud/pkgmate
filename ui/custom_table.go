@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"maps"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -21,7 +20,6 @@ type customTableKeyMap struct {
 	pagedown key.Binding
 	first    key.Binding
 	last     key.Binding
-	choose   key.Binding
 }
 
 func (k customTableKeyMap) ShortHelp() []key.Binding {
@@ -29,32 +27,28 @@ func (k customTableKeyMap) ShortHelp() []key.Binding {
 }
 
 func (k customTableKeyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{{k.up, k.down, k.pageup, k.pagedown}, {k.first, k.last, k.choose}}
+	return [][]key.Binding{{k.up, k.down, k.pageup, k.pagedown}, {k.first, k.last}}
 }
 
 type customTable struct {
-	label                 string
-	keys                  *customTableKeyMap
-	Columns               []string
-	mp                    map[string]int
-	OriginalRows          [][]string
-	StyledRows            map[string]lipgloss.Style
-	OriginalStyledRows    map[string]lipgloss.Style
-	Rows                  [][]string
-	NewRows               [][]string
-	cursor                int
-	offset                int
-	Height                int
-	Width                 int
-	focused               bool
-	loading               bool
-	spinner               spinner.Model
-	headerStyle           lipgloss.Style
-	cursorStyler          Styler
-	cellStyle             lipgloss.Style
-	selectStyler          Styler
-	cursorAndSelectStyler Styler
-	selectedRows          map[string]bool
+	label        string
+	keys         *customTableKeyMap
+	Columns      []string
+	mp           map[string]int
+	OriginalRows [][]string
+	StyledRows   map[string]lipgloss.Style
+	Rows         [][]string
+	NewRows      [][]string
+	cursor       int
+	offset       int
+	Height       int
+	Width        int
+	focused      bool
+	loading      bool
+	spinner      spinner.Model
+	headerStyle  lipgloss.Style
+	cursorStyler Styler
+	cellStyle    lipgloss.Style
 }
 
 func newCustomTable(label string) *customTable {
@@ -65,31 +59,26 @@ func newCustomTable(label string) *customTable {
 		pagedown: key.NewBinding(key.WithKeys("pgdown", "ctrl+d"), key.WithHelp("pagedown/ctrl+d", "jump down")),
 		first:    key.NewBinding(key.WithKeys("home", "ctrl+g"), key.WithHelp("home/ctrl+g", "move to first")),
 		last:     key.NewBinding(key.WithKeys("end", "G"), key.WithHelp("end/G", "move to last")),
-		choose:   key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "select row"), key.WithDisabled()),
 	}
 
 	s := spinner.New(spinner.WithSpinner(spinner.Dot))
 
 	return &customTable{
-		label:                 label,
-		keys:                  &keys,
-		mp:                    make(map[string]int),
-		Columns:               []string{},
-		Rows:                  [][]string{},
-		NewRows:               [][]string{},
-		cursor:                0,
-		offset:                0,
-		focused:               true,
-		loading:               true,
-		spinner:               s,
-		headerStyle:           lipgloss.NewStyle().Bold(true).Padding(0, 1).BorderStyle(lipgloss.NormalBorder()).BorderBottom(true),
-		cursorStyler:          cursorRowStyler,
-		cellStyle:             lipgloss.NewStyle().Padding(0, 1),
-		StyledRows:            make(map[string]lipgloss.Style),
-		OriginalStyledRows:    make(map[string]lipgloss.Style),
-		selectStyler:          noStyler,
-		cursorAndSelectStyler: noStyler,
-		selectedRows:          map[string]bool{},
+		label:        label,
+		keys:         &keys,
+		mp:           make(map[string]int),
+		Columns:      []string{},
+		Rows:         [][]string{},
+		NewRows:      [][]string{},
+		cursor:       0,
+		offset:       0,
+		focused:      true,
+		loading:      true,
+		spinner:      s,
+		headerStyle:  lipgloss.NewStyle().Bold(true).Padding(0, 1).BorderStyle(lipgloss.NormalBorder()).BorderBottom(true),
+		cursorStyler: cursorRowStyler,
+		cellStyle:    lipgloss.NewStyle().Padding(0, 1),
+		StyledRows:   make(map[string]lipgloss.Style),
 	}
 }
 
@@ -123,18 +112,6 @@ func (m *customTable) Focus() {
 
 func (m customTable) Focused() bool {
 	return m.focused
-}
-
-func (m *customTable) EnterSelectMode(selectStyler Styler, cursorMixStyler Styler) {
-	m.selectStyler = selectStyler
-	m.cursorAndSelectStyler = cursorMixStyler
-	m.keys.choose.SetEnabled(true)
-}
-
-func (m *customTable) ExitSelectMode() {
-	m.selectedRows = make(map[string]bool)
-	m.keys.choose.SetEnabled(false)
-	m.StyledRows = maps.Clone(m.OriginalStyledRows)
 }
 
 func (m customTable) Update(msg tea.Msg) (customTable, tea.Cmd) {
@@ -173,19 +150,6 @@ func (m customTable) Update(msg tea.Msg) (customTable, tea.Cmd) {
 			m.updateCursor(len(m.Rows) * -1)
 		case key.Matches(msg, m.keys.last):
 			m.updateCursor(len(m.Rows))
-		case key.Matches(msg, m.keys.choose):
-			firstCell := m.Rows[m.cursor][0]
-			if m.selectedRows[firstCell] {
-				delete(m.selectedRows, firstCell)
-			} else {
-				if oldStyle, ok := m.StyledRows[firstCell]; ok {
-					m.StyledRows[firstCell] = m.selectStyler(oldStyle)
-				} else {
-					m.StyledRows[firstCell] = m.selectStyler(lipgloss.NewStyle())
-				}
-				m.selectedRows[firstCell] = true
-			}
-
 		}
 	}
 
@@ -194,7 +158,6 @@ func (m customTable) Update(msg tea.Msg) (customTable, tea.Cmd) {
 
 func (m customTable) addStyleRow(row string, style lipgloss.Style) {
 	m.StyledRows[row] = style
-	m.OriginalStyledRows[row] = style
 }
 
 func (m *customTable) updateCursor(n int) {
@@ -307,9 +270,7 @@ func (m *customTable) View() string {
 		if !ok {
 			rowStyle = lipgloss.NewStyle()
 		}
-		if i == m.cursor && m.Focused() && m.selectedRows[row[0]] {
-			rowStyle = m.cursorAndSelectStyler(rowStyle)
-		} else if i == m.cursor && m.Focused() {
+		if i == m.cursor && m.Focused() {
 			rowStyle = m.cursorStyler(rowStyle)
 		}
 
