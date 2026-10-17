@@ -105,21 +105,13 @@ func (b *BrewBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 					}
 					receiptPath := filepath.Join(verEntry.Name(), "INSTALL_RECEIPT.json")
 					receiptData, err := root.ReadFile(receiptPath)
+					root.Close()
 					if err != nil {
 						slog.Warn("could not read data for package", "package", pkgName, "err", err)
 						continue
 					}
 
-					var installDate time.Time
-					var receipt installReceipt
-					isDirect := true
-
-					if json.Unmarshal(receiptData, &receipt) == nil {
-						if receipt.Time > 0 {
-							installDate = time.Unix(receipt.Time, 0)
-						}
-						isDirect = receipt.InstalledOnRequest
-					}
+					installDate, isDirect := parseInstallReceipt(receiptData)
 
 					if installDate.IsZero() {
 						installDate = time.Now()
@@ -189,6 +181,20 @@ func (b *BrewBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 
 func (b *BrewBackend) Update() (func() error, chan OperationResult) {
 	return createNormalCmd("update", "brew", "update")
+}
+
+func parseInstallReceipt(data []byte) (installDate time.Time, isDirect bool) {
+	var receipt installReceipt
+	isDirect = true
+
+	if json.Unmarshal(data, &receipt) == nil {
+		if receipt.Time > 0 {
+			installDate = time.Unix(receipt.Time, 0)
+		}
+		isDirect = receipt.InstalledOnRequest
+	}
+
+	return installDate, isDirect
 }
 
 func getInstalledVersion(cellarPath, pkgName string) (string, error) {
@@ -313,6 +319,16 @@ func getOutdatedVersions() map[string]string {
 		return outdated
 	}
 
+	parsed, err := parseBrewOutdated(output)
+	if err != nil {
+		slog.Warn("Failed to parse outdated JSON", "err", err)
+		return outdated
+	}
+
+	return parsed
+}
+
+func parseBrewOutdated(out []byte) (map[string]string, error) {
 	var result struct {
 		Formulae []struct {
 			Name             string `json:"name"`
@@ -324,10 +340,11 @@ func getOutdatedVersions() map[string]string {
 		} `json:"casks"`
 	}
 
-	if err := json.Unmarshal(output, &result); err != nil {
-		slog.Warn("Failed to parse outdated JSON", "err", err)
-		return outdated
+	if err := json.Unmarshal(out, &result); err != nil {
+		return nil, err
 	}
+
+	outdated := make(map[string]string)
 
 	for _, formula := range result.Formulae {
 		outdated[formula.Name] = formula.AvailableVersion
@@ -337,7 +354,7 @@ func getOutdatedVersions() map[string]string {
 		outdated[cask.Name] = cask.AvailableVersion
 	}
 
-	return outdated
+	return outdated, nil
 }
 
 func getPinnedFormulae() map[string]bool {
@@ -352,6 +369,12 @@ func getPinnedFormulae() map[string]bool {
 
 	prefix := strings.TrimSpace(string(output))
 	pinnedDir := filepath.Join(prefix, "var", "homebrew", "pinned")
+
+	return readBrewPinnedDir(pinnedDir)
+}
+
+func readBrewPinnedDir(pinnedDir string) map[string]bool {
+	pinned := make(map[string]bool)
 
 	entries, err := os.ReadDir(pinnedDir)
 	if err != nil {
@@ -377,7 +400,13 @@ func getOrphanNames() map[string]bool {
 		return orphans
 	}
 
-	for line := range strings.SplitSeq(string(output), "\n") {
+	return parseBrewAutoremove(string(output))
+}
+
+func parseBrewAutoremove(out string) map[string]bool {
+	orphans := make(map[string]bool)
+
+	for line := range strings.SplitSeq(out, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || !strings.Contains(line, "Would remove:") {
 			if strings.HasPrefix(line, "==>") {

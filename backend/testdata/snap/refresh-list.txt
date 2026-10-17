@@ -1,0 +1,4 @@
+Name     Version  Rev   Size  Publisher   Notes
+firefox  132.0    5200  250MB mozilla✓    -
+core22   20241001 1400  75MB  canonical✓  held
+

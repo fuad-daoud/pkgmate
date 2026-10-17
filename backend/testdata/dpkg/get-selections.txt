@@ -1,0 +1,4 @@
+bash					install
+openssh-server				hold
+old-config-only				deinstall
+libc6:i386				hold

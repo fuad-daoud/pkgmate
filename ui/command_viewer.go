@@ -3,10 +3,7 @@ package ui
 import (
 	"io"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
 	"pkgmate/backend"
 
@@ -19,7 +16,6 @@ import (
 func NewUpdateCommandView() commandExecModel {
 	return newCommandExecView(
 		"System Update",
-		"pkgmate-update.log",
 		backend.UpdateAll,
 	)
 }
@@ -28,34 +24,21 @@ type CommandExecutor func() (func() error, chan backend.OperationResult)
 
 type commandExecModel struct {
 	viewport    viewport.Model
-	rootPath    string
-	logFile     string
 	running     bool
 	resultChan  chan backend.OperationResult
-	lastLogSize int
+	resultLogs  string
 	commandName string
 	commandFunc CommandExecutor
 }
 
 func (commandExecModel) Init() tea.Cmd { return nil }
 
-type LogTickMsg time.Time
-
 // newCommandExecView creates a new command execution view
 // Parameters:
 //   - commandName: Display name shown in the UI (e.g., "System Update", "Package Install")
-//   - logFile: Name of the log file to monitor (e.g., "pkgmate-update.log")
 //   - cmdFunc: The command executor function that will be called when user presses Enter
-func newCommandExecView(commandName, logFile string, cmdFunc CommandExecutor) commandExecModel {
-	rootPath := filepath.Join(os.TempDir(), "user")
-	err := os.MkdirAll(rootPath, 0750)
-	if err != nil {
-		slog.Error("Failed to create command logs dir", "err", err)
-	}
-
+func newCommandExecView(commandName string, cmdFunc CommandExecutor) commandExecModel {
 	return commandExecModel{
-		rootPath:    rootPath,
-		logFile:     logFile,
 		commandName: commandName,
 		commandFunc: cmdFunc,
 		running:     false,
@@ -66,7 +49,7 @@ func (m *commandExecModel) startCommand() tea.Cmd {
 	m.running = true
 	execFunc, resultChan := m.commandFunc()
 	m.resultChan = resultChan
-	m.lastLogSize = 0
+	m.resultLogs = ""
 
 	return tea.Batch(
 		tea.Exec(PrivilegedFunction{execFunc}, func(err error) tea.Msg {
@@ -75,15 +58,8 @@ func (m *commandExecModel) startCommand() tea.Cmd {
 			}
 			return nil
 		}),
-		m.tickLog(),
 		m.waitForResult(),
 	)
-}
-
-func (m *commandExecModel) tickLog() tea.Cmd {
-	return tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
-		return LogTickMsg(t)
-	})
 }
 
 func (m *commandExecModel) waitForResult() tea.Cmd {
@@ -94,20 +70,13 @@ func (m *commandExecModel) waitForResult() tea.Cmd {
 }
 
 func (m *commandExecModel) content() string {
-	logPath := filepath.Join(m.rootPath, m.logFile)
-	content, err := os.ReadFile(logPath)
-	if err != nil {
-		if m.running {
-			return "Waiting for " + m.commandName + " to start...\n"
-		}
-		return "No logs available. Press Enter to run " + m.commandName + ".\n"
+	if !m.running && m.resultLogs != "" {
+		return m.resultLogs
 	}
-
-	logs := string(content)
-	if logs == "" && m.running {
-		return m.commandName + " started...\n"
+	if m.running {
+		return "Waiting for " + m.commandName + " to start...\n"
 	}
-	return logs
+	return "No logs available. Press Enter to run " + m.commandName + ".\n"
 }
 
 type PrivilegedFunction struct {
@@ -131,20 +100,6 @@ func (m commandExecModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport = viewport.New(msg.width, msg.height)
 		m.viewport.SetContent(m.content())
 
-	case LogTickMsg:
-		// Only tick if command is still running
-		if m.running {
-			content := m.content()
-			newSize := len(content)
-			// Update viewport only if content changed
-			if newSize != m.lastLogSize {
-				m.viewport.SetContent(content)
-				m.viewport.GotoBottom() // Auto-scroll to see latest logs
-				m.lastLogSize = newSize
-			}
-			cmds = append(cmds, m.tickLog())
-		}
-
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, key.NewBinding(key.WithKeys("enter"))):
@@ -157,6 +112,10 @@ func (m commandExecModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case backend.OperationResult:
 		// Command completed
 		m.running = false
+		m.resultLogs = msg.Logs
+		if m.resultLogs == "" && msg.Error != nil {
+			m.resultLogs = msg.Error.Error()
+		}
 		m.viewport.SetContent(m.content())
 		m.viewport.GotoBottom()
 

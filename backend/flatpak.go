@@ -43,50 +43,8 @@ func (f *FlatpakBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 			return
 		}
 
-		lines := strings.SplitSeq(string(output), "\n")
-
-		for line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-
-			fields := strings.Fields(line)
-			if len(fields) < 4 {
-				continue
-			}
-
-			var sizeIdx int
-			for i := len(fields) - 1; i >= 0; i-- {
-				if strings.HasSuffix(fields[i], "B") {
-					sizeIdx = i - 1
-					break
-				}
-			}
-
-			if sizeIdx < 3 {
-				continue
-			}
-
-			version := fields[sizeIdx-1]
-			sizeStr := fields[sizeIdx] + fields[sizeIdx+1]
-
-			nameFields := fields[1 : sizeIdx-1]
-			name := strings.Join(nameFields, " ")
-
-			size := parseFlatpakSize(sizeStr)
-			installDate := getFlatpakInstallDate(name)
-
-			pkg := Package{
-				Name:     name,
-				Version:  version,
-				Size:     size,
-				Date:     installDate,
-				IsDirect: true,
-				IsFrozen: false,
-				IsOrphan: false,
-				DB:       "flatpak",
-			}
+		for _, pkg := range parseFlatpakList(string(output)) {
+			pkg.Date = getFlatpakInstallDate(pkg.Name)
 
 			load(pkg)
 		}
@@ -95,12 +53,62 @@ func (f *FlatpakBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 
 func (f *FlatpakBackend) Update() (func() error, chan OperationResult) {
 	resultChan := make(chan OperationResult, 1)
-	err := fmt.Errorf("flatpak update not implemented")
+	err := fmt.Errorf("flatpak %w", ErrUpdateNotImplemented)
 
 	return func() error {
 		resultChan <- OperationResult{Error: err}
 		return err
 	}, resultChan
+}
+
+func parseFlatpakList(out string) []Package {
+	var pkgs []Package
+
+	lines := strings.SplitSeq(out, "\n")
+
+	for line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+
+		var sizeIdx int
+		for i := len(fields) - 1; i >= 0; i-- {
+			if strings.HasSuffix(fields[i], "B") {
+				sizeIdx = i - 1
+				break
+			}
+		}
+
+		if sizeIdx < 3 {
+			continue
+		}
+
+		version := fields[sizeIdx-1]
+		sizeStr := fields[sizeIdx] + fields[sizeIdx+1]
+
+		nameFields := fields[1 : sizeIdx-1]
+		name := strings.Join(nameFields, " ")
+
+		size := parseFlatpakSize(sizeStr)
+
+		pkgs = append(pkgs, Package{
+			Name:     name,
+			Version:  version,
+			Size:     size,
+			IsDirect: true,
+			IsFrozen: false,
+			IsOrphan: false,
+			DB:       "flatpak",
+		})
+	}
+
+	return pkgs
 }
 
 func parseFlatpakSize(sizeStr string) int64 {

@@ -1,0 +1,14 @@
+Package: libfoo1
+Architecture: amd64
+Auto-Installed: 1
+
+Package: bash
+Architecture: amd64
+Auto-Installed: 0
+
+Package: python3-minimal
+Auto-Installed: 1
+
+Package: htop
+Architecture: amd64
+Auto-Installed: 0

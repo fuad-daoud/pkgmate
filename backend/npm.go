@@ -56,18 +56,15 @@ func (n *NpmBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 		return
 	}
 
-	var npmList struct {
-		Dependencies map[string]npmPackage `json:"dependencies"`
-	}
-
-	if err := json.Unmarshal(listOutput, &npmList); err != nil {
+	dependencies, err := parseNpmList(listOutput)
+	if err != nil {
 		slog.Error("failed to parse npm list output", "err", err)
 		return
 	}
 
 	semaphore := make(chan struct{}, 8)
 
-	for name, metadata := range npmList.Dependencies {
+	for name, metadata := range dependencies {
 		wg.Go(func() {
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
@@ -101,9 +98,21 @@ func (n *NpmBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 	}
 }
 
+func parseNpmList(out []byte) (map[string]npmPackage, error) {
+	var npmList struct {
+		Dependencies map[string]npmPackage `json:"dependencies"`
+	}
+
+	if err := json.Unmarshal(out, &npmList); err != nil {
+		return nil, err
+	}
+
+	return npmList.Dependencies, nil
+}
+
 func (n *NpmBackend) Update() (func() error, chan OperationResult) {
 	resultChan := make(chan OperationResult, 1)
-	err := fmt.Errorf("npm update not implemented")
+	err := fmt.Errorf("npm %w", ErrUpdateNotImplemented)
 
 	return func() error {
 		resultChan <- OperationResult{Error: err}

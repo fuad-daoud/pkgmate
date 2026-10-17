@@ -1,0 +1,9 @@
+go	go1.24.2
+path	golang.org/x/tools/gopls
+mod	golang.org/x/tools/gopls	v0.18.1	h1:fixture
+dep	golang.org/x/mod	v0.24.0	h1:fixture
+build	-buildmode=exe
+build	-compiler=gc
+build	CGO_ENABLED=1
+build	GOARCH=amd64
+build	GOOS=linux

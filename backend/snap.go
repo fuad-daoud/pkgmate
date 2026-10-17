@@ -46,47 +46,10 @@ func (s *SnapBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 		heldPkgs := getHeldSnaps()
 		updatable := getUpdatableSnaps()
 
-		lines := strings.SplitSeq(string(output), "\n")
-
-		first := true
-		for line := range lines {
-			if first {
-				first = false
-				continue
-			}
-
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-
-			fields := strings.Fields(line)
-			if len(fields) < 3 {
-				continue
-			}
-
-			name := fields[0]
-			version := fields[1]
-
-			notes := ""
-			if len(fields) >= 6 {
-				notes = fields[5]
-			}
-
-			isDirect := isDirectInstall(name, notes)
-			size := getSnapSize(name)
-			installDate := getSnapInstallDate(name)
-
-			pkg := Package{
-				Name:     name,
-				Version:  version,
-				Size:     size,
-				Date:     installDate,
-				IsDirect: isDirect,
-				IsFrozen: heldPkgs[name],
-				IsOrphan: false,
-				DB:       "snap",
-			}
+		for _, pkg := range parseSnapList(string(output)) {
+			pkg.Size = getSnapSize(pkg.Name)
+			pkg.Date = getSnapInstallDate(pkg.Name)
+			pkg.IsFrozen = heldPkgs[pkg.Name]
 
 			if newVer, ok := updatable[pkg.Name]; ok && newVer != pkg.Version {
 				pkg.NewVersion = newVer
@@ -101,12 +64,54 @@ func (s *SnapBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 
 func (s *SnapBackend) Update() (func() error, chan OperationResult) {
 	resultChan := make(chan OperationResult, 1)
-	err := fmt.Errorf("snap update not implemented")
+	err := fmt.Errorf("snap %w", ErrUpdateNotImplemented)
 
 	return func() error {
 		resultChan <- OperationResult{Error: err}
 		return err
 	}, resultChan
+}
+
+func parseSnapList(out string) []Package {
+	var pkgs []Package
+
+	lines := strings.SplitSeq(out, "\n")
+
+	first := true
+	for line := range lines {
+		if first {
+			first = false
+			continue
+		}
+
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+
+		name := fields[0]
+		version := fields[1]
+
+		notes := ""
+		if len(fields) >= 6 {
+			notes = fields[5]
+		}
+
+		pkgs = append(pkgs, Package{
+			Name:     name,
+			Version:  version,
+			IsDirect: isDirectInstall(name, notes),
+			IsOrphan: false,
+			DB:       "snap",
+		})
+	}
+
+	return pkgs
 }
 
 func isDirectInstall(name, notes string) bool {
@@ -189,7 +194,13 @@ func getHeldSnaps() map[string]bool {
 		return held
 	}
 
-	lines := strings.SplitSeq(string(output), "\n")
+	return parseSnapHeld(string(output))
+}
+
+func parseSnapHeld(out string) map[string]bool {
+	held := make(map[string]bool)
+
+	lines := strings.SplitSeq(out, "\n")
 	for line := range lines {
 		if strings.Contains(line, "held") || strings.Contains(line, "hold") {
 			fields := strings.Fields(line)
@@ -211,7 +222,13 @@ func getUpdatableSnaps() map[string]string {
 		return updatable
 	}
 
-	lines := strings.SplitSeq(string(output), "\n")
+	return parseSnapRefreshList(string(output))
+}
+
+func parseSnapRefreshList(out string) map[string]string {
+	updatable := make(map[string]string)
+
+	lines := strings.SplitSeq(out, "\n")
 
 	first := true
 	for line := range lines {

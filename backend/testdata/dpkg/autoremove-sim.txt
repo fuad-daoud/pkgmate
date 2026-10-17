@@ -1,0 +1,12 @@
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following packages will be REMOVED:
+  libfoo1 python3-minimal
+0 upgraded, 0 newly installed, 2 to remove and 0 not upgraded.
+NOTE: This is only a simulation!
+      apt-get needs root privileges for real execution.
+      Keep also in mind that locking is deactivated,
+      so don't depend on the relevance to the real current situation!
+Remv libfoo1 [1.2-3]
+Remv python3-minimal [3.10.6-1~22.04]

@@ -1,0 +1,7 @@
+go	go1.24.2
+path	example.com/tool
+mod	example.com/tool	(devel)	
+build	-buildmode=exe
+build	-compiler=gc
+build	GOARCH=amd64
+build	GOOS=linux

@@ -1,0 +1,70 @@
+Package: bash
+Status: install ok installed
+Priority: required
+Section: shells
+Installed-Size: 1864
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Architecture: amd64
+Version: 5.1-6ubuntu1.1
+Depends: base-files (>= 2.1.12), debianutils (>= 2.15)
+Description: GNU Bourne Again SHell
+ Bash is an sh-compatible command language interpreter that executes
+ commands read from the standard input or from a file.
+Conffiles:
+ /etc/bash.bashrc 89269e22d3d6ac4d1d0bb4b8cbfd8cb2
+ /etc/skel/.bashrc 2d3d6ac4d1d0bb4b8cbfd8cb289269e2
+
+Package: openssh-server
+Status: hold ok installed
+Priority: optional
+Section: net
+Installed-Size: 1425
+Architecture: amd64
+Version: 1:8.9p1-3ubuntu0.10
+Description: secure shell (SSH) server, for secure access from remote machines
+
+Package: old-config-only
+Status: deinstall ok config-files
+Priority: optional
+Section: misc
+Installed-Size: 120
+Architecture: all
+Version: 2.0-1
+Description: removed but configuration remains
+
+Package: broken-setup
+Status: install ok half-configured
+Priority: optional
+Section: misc
+Installed-Size: 300
+Architecture: amd64
+Version: 0.9-1
+Description: stuck mid-configuration
+
+Package: ca-certificates
+Status: install ok installed
+Priority: optional
+Section: misc
+Architecture: all
+Version: 20240203~22.04.1
+Description: Common CA certificates
+
+Package: libc6
+Status: install ok installed
+Priority: optional
+Section: libs
+Installed-Size: 13182
+Architecture: amd64
+Multi-Arch: same
+Version: 2.35-0ubuntu3.8
+Description: GNU C Library: Shared libraries
+
+Package: libc6
+Status: install ok installed
+Priority: optional
+Section: libs
+Installed-Size: 12000
+Architecture: i386
+Multi-Arch: same
+Version: 2.35-0ubuntu3.8
+Description: GNU C Library: Shared libraries

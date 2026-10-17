@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"reflect"
-
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -80,7 +78,7 @@ func (m displayModel) Update(msg tea.Msg) (displayModel, tea.Cmd) {
 		m.commandPalette, cmd = m.commandPalette.Update(msg)
 		commands = append(commands, cmd)
 	}
-	if reflect.TypeOf(msg).Name() == "DisplayResizeEvent" {
+	if _, ok := msg.(DisplayResizeEvent); ok {
 		var cmd tea.Cmd
 		m.currentDisplay, cmd = m.currentDisplay.Update(msg)
 		commands = append(commands, cmd)
