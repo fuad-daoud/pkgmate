@@ -26,6 +26,8 @@ type cmdRunner func(argv []string, out io.Writer) (exitCode int, err error)
 var runCmd cmdRunner = runExec
 
 func runExec(argv []string, out io.Writer) (int, error) {
+	// #nosec G204 -- argv comes from escalationArgv: an escalator name, a
+	// LookPath-resolved binary and fixed backend arguments; no shell is involved.
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = out

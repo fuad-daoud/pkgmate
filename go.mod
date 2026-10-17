@@ -2,6 +2,8 @@ module pkgmate
 
 go 1.25.2
 
+toolchain go1.27.2
+
 require (
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/bubbletea v1.3.10
