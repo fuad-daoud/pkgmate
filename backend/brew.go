@@ -179,10 +179,6 @@ func (b *BrewBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 	})
 }
 
-func (b *BrewBackend) Update() (func() error, chan OperationResult) {
-	return createNormalCmd("update", "brew", "update")
-}
-
 func parseInstallReceipt(data []byte) (installDate time.Time, isDirect bool) {
 	var receipt installReceipt
 	isDirect = true

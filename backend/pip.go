@@ -103,16 +103,6 @@ func (p *PipBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 	}
 }
 
-func (p *PipBackend) Update() (func() error, chan OperationResult) {
-	resultChan := make(chan OperationResult, 1)
-	err := fmt.Errorf("pip %w", ErrUpdateNotImplemented)
-
-	return func() error {
-		resultChan <- OperationResult{Error: err}
-		return err
-	}, resultChan
-}
-
 func getPipCommand() string {
 	for _, cmd := range []string{"pip3", "pip"} {
 		if _, err := exec.LookPath(cmd); err == nil {

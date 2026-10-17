@@ -74,24 +74,6 @@ func (d *DpkgBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 	})
 }
 
-func (d *DpkgBackend) Update() (func() error, chan OperationResult) {
-	if _, err := exec.LookPath("apt-get"); err == nil {
-		return CreatePrivilegedCmd(d.Name()+"-update", "apt-get", "update")
-	}
-
-	if _, err := exec.LookPath("apt"); err == nil {
-		return CreatePrivilegedCmd(d.Name()+"-update", "apt", "update")
-	}
-
-	resultChan := make(chan OperationResult, 1)
-	err := fmt.Errorf("neither apt-get nor apt found")
-
-	return func() error {
-		resultChan <- OperationResult{Error: err}
-		return err
-	}, resultChan
-}
-
 func parseDpkgStatus(data string) []Package {
 	var pkgs []Package
 

@@ -10,7 +10,6 @@ var (
 	selectedColor = lipgloss.Color("#4355ff")
 	dangerColor   = lipgloss.Color("#AA220B")
 	loadingColor  = lipgloss.Color("#FFB86C")
-	allGoodColor  = lipgloss.Color("#43AA22")
 	mutedColor    = lipgloss.Color("60")
 
 	noStyler = func(s lipgloss.Style) lipgloss.Style {

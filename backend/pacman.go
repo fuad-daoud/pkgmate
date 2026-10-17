@@ -196,10 +196,6 @@ func parseParagraph(para string) Package {
 	return pkg
 }
 
-func (p *PacmanBackend) Update() (func() error, chan OperationResult) {
-	return CreatePrivilegedCmd(p.Name()+"-update", "pacman", "-Syy", "--noconfirm")
-}
-
 func getExplicitPackages() map[string]bool {
 	explicit := make(map[string]bool)
 

@@ -25,9 +25,6 @@ func (DummyBackend) LoadPackages() (chan []Package, error) {
 func (DummyBackend) GetOrphanPackages() ([]Package, error) {
 	return nil, nil
 }
-func (DummyBackend) Update() (func() error, chan OperationResult) {
-	return nil, nil
-}
 func (DummyBackend) String() string {
 	return "Dummy"
 }
