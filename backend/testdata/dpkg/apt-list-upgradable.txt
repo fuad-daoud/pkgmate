@@ -1,0 +1,5 @@
+Listing... Done
+curl/jammy-updates,jammy-security 7.81.0-1ubuntu1.18 amd64 [upgradable from: 7.81.0-1ubuntu1.16]
+libssl3/jammy-updates 3.0.2-0ubuntu1.18 amd64 [upgradable from: 3.0.2-0ubuntu1.15]
+bash/jammy-updates 5.1-6ubuntu1.2 amd64 [upgradable from: 5.1-6ubuntu1.1]
+

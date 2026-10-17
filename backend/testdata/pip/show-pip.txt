@@ -1,0 +1,9 @@
+Name: pip
+Version: 24.0
+Summary: The PyPA recommended tool for installing Python packages.
+Home-page: 
+Author: 
+Editable project location: /path/to/editable/pip
+Location: /usr/lib/python3.12/site-packages
+Requires: 
+Required-by: 

@@ -1,0 +1,112 @@
+Name            : bash
+Version         : 5.2.037-2
+Description     : The GNU Bourne Again shell
+Architecture    : x86_64
+URL             : https://www.gnu.org/software/bash/bash.html
+Licenses        : GPL-3.0-or-later
+Groups          : None
+Provides        : sh
+Depends On      : readline  libreadline.so=8-64  glibc  ncurses
+Optional Deps   : bash-completion: for tab completion
+Required By     : base
+Optional For    : None
+Conflicts With  : None
+Replaces        : None
+Installed Size  : 9.59 MiB
+Packager        : Example Packager <packager@archlinux.org>
+Build Date      : Wed 04 Sep 2024 08:13:10 AM UTC
+Install Date    : Thu 28 Nov 2024 10:30:45 AM UTC
+Install Reason  : Installed as a dependency for another package
+Install Script  : No
+Validated By    : Signature
+
+Name            : vim
+Version         : 9.1.0861-1
+Description     : Vi Improved, a highly configurable, improved version of the vi text editor
+Architecture    : x86_64
+URL             : https://www.vim.org
+Licenses        : Vim
+Groups          : None
+Provides        : xxd
+Depends On      : vim-runtime=9.1.0861-1  gpm  acl  glibc  libgcrypt  pcre2  zlib
+Optional Deps   : python: Python language support [installed]
+                  ruby: Ruby language support
+                  lua: Lua language support
+                  perl: Perl language support
+Required By     : None
+Optional For    : None
+Conflicts With  : None
+Replaces        : None
+Installed Size  : 4.08 MiB
+Packager        : Example Packager <packager@archlinux.org>
+Build Date      : Mon 04 Nov 2024 09:00:00 AM UTC
+Install Date    : Thu Nov  7 10:30:45 2024
+Install Reason  : Explicitly installed
+Install Script  : No
+Validated By    : Signature
+
+Name            : tiny-config
+Version         : 1.0-1
+Description     : A package measured in KiB
+Architecture    : any
+URL             : None
+Licenses        : MIT
+Groups          : None
+Provides        : None
+Depends On      : None
+Optional Deps   : None
+Required By     : None
+Optional For    : None
+Conflicts With  : None
+Replaces        : None
+Installed Size  : 512.50 KiB
+Packager        : Unknown Packager
+Build Date      : Tue 01 Oct 2024 01:00:00 PM UTC
+Install Date    : Thu 28 Nov 2024 10:30:45 UTC
+Install Reason  : Explicitly installed
+Install Script  : No
+Validated By    : Signature
+
+Name            : filesystem
+Version         : 2024.11.21-1
+Description     : Base Arch Linux files
+Architecture    : any
+URL             : https://archlinux.org
+Licenses        : GPL-2.0-only
+Groups          : None
+Provides        : None
+Depends On      : iana-etc
+Optional Deps   : None
+Required By     : base
+Optional For    : None
+Conflicts With  : None
+Replaces        : None
+Installed Size  : 892.00 B
+Packager        : Example Packager <packager@archlinux.org>
+Build Date      : Thu 21 Nov 2024 12:00:00 PM UTC
+Install Date    : Thu 28 Nov 2024 10:30:45 AM UTC
+Install Reason  : Explicitly installed
+Install Script  : Yes
+Validated By    : Signature
+
+Name            : zoned-pkg
+Version         : 3.1-1
+Description     : Install date printed with a numeric zone offset
+Architecture    : x86_64
+URL             : None
+Licenses        : MIT
+Groups          : None
+Provides        : None
+Depends On      : None
+Optional Deps   : None
+Required By     : None
+Optional For    : None
+Conflicts With  : None
+Replaces        : None
+Installed Size  : 1.50 GiB
+Packager        : Unknown Packager
+Build Date      : Tue 01 Oct 2024 01:00:00 PM UTC
+Install Date    : Sun 20 Sep 2026 05:05:15 PM +03
+Install Reason  : Installed as a dependency for another package
+Install Script  : No
+Validated By    : Signature

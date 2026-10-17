@@ -129,7 +129,11 @@ func getSitePackagesPath(pipCmd string) string {
 		return ""
 	}
 
-	for line := range strings.SplitSeq(string(output), "\n") {
+	return parsePipShowLocation(string(output))
+}
+
+func parsePipShowLocation(out string) string {
+	for line := range strings.SplitSeq(out, "\n") {
 		if after, ok := strings.CutPrefix(line, "Location: "); ok {
 			return after
 		}
@@ -146,13 +150,22 @@ func getPipList(pipCmd string) []pipPackage {
 		return []pipPackage{}
 	}
 
-	var packages []pipPackage
-	if err := json.Unmarshal(output, &packages); err != nil {
+	packages, err := parsePipList(output)
+	if err != nil {
 		slog.Warn("Failed to parse pip list output", "err", err)
 		return []pipPackage{}
 	}
 
 	return packages
+}
+
+func parsePipList(out []byte) ([]pipPackage, error) {
+	var packages []pipPackage
+	if err := json.Unmarshal(out, &packages); err != nil {
+		return nil, err
+	}
+
+	return packages, nil
 }
 
 func getPipxList() []pipPackage {
@@ -162,6 +175,16 @@ func getPipxList() []pipPackage {
 		return getPipxListPlain()
 	}
 
+	packages, err := parsePipxListJSON(output)
+	if err != nil {
+		slog.Warn("Failed to parse pipx list output", "err", err)
+		return []pipPackage{}
+	}
+
+	return packages
+}
+
+func parsePipxListJSON(out []byte) ([]pipPackage, error) {
 	var result struct {
 		Venvs map[string]struct {
 			Metadata struct {
@@ -172,9 +195,8 @@ func getPipxList() []pipPackage {
 		} `json:"venvs"`
 	}
 
-	if err := json.Unmarshal(output, &result); err != nil {
-		slog.Warn("Failed to parse pipx list output", "err", err)
-		return []pipPackage{}
+	if err := json.Unmarshal(out, &result); err != nil {
+		return nil, err
 	}
 
 	packages := make([]pipPackage, 0)
@@ -185,7 +207,7 @@ func getPipxList() []pipPackage {
 		})
 	}
 
-	return packages
+	return packages, nil
 }
 
 func getPipxListPlain() []pipPackage {
@@ -195,8 +217,12 @@ func getPipxListPlain() []pipPackage {
 		return []pipPackage{}
 	}
 
+	return parsePipxListPlain(string(output))
+}
+
+func parsePipxListPlain(out string) []pipPackage {
 	packages := make([]pipPackage, 0)
-	for line := range strings.SplitSeq(string(output), "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "package ") {
 			fields := strings.Fields(line)
@@ -326,21 +352,31 @@ func getPipOutdated(pipCmd string) map[string]string {
 		return outdated
 	}
 
+	parsed, err := parsePipOutdated(output)
+	if err != nil {
+		slog.Warn("Failed to parse pip outdated output", "err", err)
+		return outdated
+	}
+
+	return parsed
+}
+
+func parsePipOutdated(out []byte) (map[string]string, error) {
 	var packages []struct {
 		Name          string `json:"name"`
 		LatestVersion string `json:"latest_version"`
 	}
 
-	if err := json.Unmarshal(output, &packages); err != nil {
-		slog.Warn("Failed to parse pip outdated output", "err", err)
-		return outdated
+	if err := json.Unmarshal(out, &packages); err != nil {
+		return nil, err
 	}
 
+	outdated := make(map[string]string)
 	for _, pkg := range packages {
 		outdated[pkg.Name] = pkg.LatestVersion
 	}
 
-	return outdated
+	return outdated, nil
 }
 
 func (p PipBackend) String() string {

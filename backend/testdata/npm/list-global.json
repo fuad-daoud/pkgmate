@@ -1,0 +1,25 @@
+{
+  "name": "lib",
+  "dependencies": {
+    "@anthropic-ai/claude-code": {
+      "version": "2.0.14",
+      "overridden": false
+    },
+    "corepack": {
+      "version": "0.34.0",
+      "overridden": false
+    },
+    "my-linked-tool": {
+      "version": "1.0.0",
+      "resolved": "file:../../../projects/my-linked-tool",
+      "overridden": false
+    },
+    "npm": {
+      "version": "11.6.1",
+      "overridden": false
+    },
+    "unversioned-pkg": {
+      "overridden": false
+    }
+  }
+}

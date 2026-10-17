@@ -1,0 +1,6 @@
+go	go1.24.2
+path	command-line-arguments
+build	-buildmode=exe
+build	-compiler=gc
+build	GOARCH=amd64
+build	GOOS=linux

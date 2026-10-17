@@ -1,0 +1,9 @@
+Name               Version          Rev    Tracking         Publisher   Notes
+core22             20240111         1380   latest/stable    canonical✓  base
+firefox            131.0.2-1        5187   latest/stable    mozilla✓    -
+gnome-42-2204      0+git.510a2d3    176    latest/stable/…  canonical✓  -
+gtk-common-themes  0.1-81-g442e511  1535   latest/stable/…  canonical✓  -
+my-tool            x1               x1     -                -           -
+snapd              2.63             21759  latest/stable    canonical✓  snapd
+code               1.93.1           165    latest/stable    vscode✓     classic
+short              1

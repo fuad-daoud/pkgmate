@@ -75,15 +75,7 @@ func (g *GoBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 					return
 				}
 
-				packageName := bi.Main.Path
-				if packageName == "" {
-					packageName = entry.Name()
-				}
-
-				version := bi.Main.Version
-				if version == "" || version == "(devel)" {
-					version = "unknown"
-				}
+				packageName, version := goNameVersion(bi, entry.Name())
 
 				load(Package{
 					Name:     packageName,
@@ -110,6 +102,20 @@ func (g *GoBackend) Update() (func() error, chan OperationResult) {
 		resultChan <- OperationResult{Error: err}
 		return err
 	}, resultChan
+}
+
+func goNameVersion(bi *buildinfo.BuildInfo, fileName string) (name, version string) {
+	name = bi.Main.Path
+	if name == "" {
+		name = fileName
+	}
+
+	version = bi.Main.Version
+	if version == "" || version == "(devel)" {
+		version = "unknown"
+	}
+
+	return name, version
 }
 
 func getGoBinDir() string {
