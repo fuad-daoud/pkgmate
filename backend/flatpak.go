@@ -95,7 +95,7 @@ func (f *FlatpakBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 
 func (f *FlatpakBackend) Update() (func() error, chan OperationResult) {
 	resultChan := make(chan OperationResult, 1)
-	err := fmt.Errorf("flatpak update not implemented")
+	err := fmt.Errorf("flatpak %w", ErrUpdateNotImplemented)
 
 	return func() error {
 		resultChan <- OperationResult{Error: err}

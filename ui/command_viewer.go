@@ -35,6 +35,7 @@ type commandExecModel struct {
 	lastLogSize int
 	commandName string
 	commandFunc CommandExecutor
+	resultLogs  string
 }
 
 func (commandExecModel) Init() tea.Cmd { return nil }
@@ -64,6 +65,7 @@ func newCommandExecView(commandName, logFile string, cmdFunc CommandExecutor) co
 
 func (m *commandExecModel) startCommand() tea.Cmd {
 	m.running = true
+	m.resultLogs = ""
 	execFunc, resultChan := m.commandFunc()
 	m.resultChan = resultChan
 	m.lastLogSize = 0
@@ -94,6 +96,10 @@ func (m *commandExecModel) waitForResult() tea.Cmd {
 }
 
 func (m *commandExecModel) content() string {
+	if !m.running && m.resultLogs != "" {
+		return m.resultLogs
+	}
+
 	logPath := filepath.Join(m.rootPath, m.logFile)
 	content, err := os.ReadFile(logPath)
 	if err != nil {
@@ -157,6 +163,11 @@ func (m commandExecModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case backend.OperationResult:
 		// Command completed
 		m.running = false
+		if msg.Logs != "" {
+			m.resultLogs = msg.Logs
+		} else if msg.Error != nil {
+			m.resultLogs = msg.Error.Error()
+		}
 		m.viewport.SetContent(m.content())
 		m.viewport.GotoBottom()
 
