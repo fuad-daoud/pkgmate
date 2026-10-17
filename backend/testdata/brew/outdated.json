@@ -1,0 +1,25 @@
+{
+  "formulae": [
+    {
+      "name": "jq",
+      "installed_versions": ["1.7"],
+      "current_version": "1.7.1",
+      "pinned": false,
+      "pinned_version": null
+    },
+    {
+      "name": "node",
+      "installed_versions": ["21.7.0"],
+      "current_version": "22.1.0",
+      "pinned": true,
+      "pinned_version": "21.7.0"
+    }
+  ],
+  "casks": [
+    {
+      "name": "firefox",
+      "installed_versions": ["131.0"],
+      "current_version": "132.0"
+    }
+  ]
+}
