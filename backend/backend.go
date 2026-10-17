@@ -1,21 +1,16 @@
 package backend
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"log/slog"
-	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 )
 
-var ErrUpdateNotImplemented = errors.New("update not implemented")
-
 type Package struct {
+	ID           string // native identifier when it differs from Name (Flatpak application ID, Go binary file name); empty otherwise
 	Name         string
 	Version      string
 	NewVersion   string
@@ -51,7 +46,6 @@ type Backend interface {
 	Name() string
 	IsAvailable() bool
 	LoadPackages(*sync.WaitGroup, func(Package))
-	Update() (func() error, chan OperationResult)
 }
 
 var (
@@ -104,118 +98,6 @@ func LoadAllPackages() (chan Package, error) {
 	}()
 
 	return outChan, nil
-}
-
-func UpdateAll() (func() error, chan OperationResult) {
-	return updateBackends(GetAvailableBackends(), os.Stdout)
-}
-
-func updateBackends(backends []Backend, progress io.Writer) (func() error, chan OperationResult) {
-	if progress == nil {
-		progress = io.Discard
-	}
-	resultChan := make(chan OperationResult, 1)
-
-	execFunc := func() error {
-		var updated []string
-		var skipped []string
-		type failedBackend struct {
-			name string
-			err  error
-		}
-		var failed []failedBackend
-		type backendLog struct {
-			name string
-			logs string
-		}
-		var logs []backendLog
-
-		for _, b := range backends {
-			name := b.Name()
-			fmt.Fprintf(progress, "pkgmate: updating %s…\n", name)
-
-			f, ch := b.Update()
-			if f == nil {
-				skipped = append(skipped, name)
-				fmt.Fprintf(progress, "pkgmate: %s skipped\n", name)
-				continue
-			}
-
-			err := f()
-			if err != nil {
-				if errors.Is(err, ErrUpdateNotImplemented) {
-					skipped = append(skipped, name)
-					fmt.Fprintf(progress, "pkgmate: %s skipped\n", name)
-					continue
-				}
-				failed = append(failed, failedBackend{name: name, err: err})
-				fmt.Fprintf(progress, "pkgmate: %s failed\n", name)
-				continue
-			}
-
-			res := <-ch
-			if res.Logs != "" {
-				logs = append(logs, backendLog{name: name, logs: res.Logs})
-			}
-
-			if res.Success {
-				updated = append(updated, name)
-				fmt.Fprintf(progress, "pkgmate: %s updated\n", name)
-			} else {
-				resErr := res.Error
-				if resErr == nil {
-					resErr = errors.New("update failed")
-				}
-				failed = append(failed, failedBackend{name: name, err: resErr})
-				fmt.Fprintf(progress, "pkgmate: %s failed\n", name)
-			}
-		}
-
-		var finalErr error
-		if len(failed) > 0 {
-			errs := make([]error, len(failed))
-			for i, f := range failed {
-				errs[i] = fmt.Errorf("%s: %w", f.name, f.err)
-			}
-			finalErr = errors.Join(errs...)
-		}
-
-		var sb strings.Builder
-		if len(backends) == 0 {
-			sb.WriteString("No available backends\n")
-		} else {
-			if len(updated) > 0 {
-				sb.WriteString("Updated: " + strings.Join(updated, ", ") + "\n")
-			}
-			if len(skipped) > 0 {
-				sb.WriteString("Skipped: " + strings.Join(skipped, ", ") + "\n")
-			}
-			if len(failed) > 0 {
-				failedStrs := make([]string, len(failed))
-				for i, f := range failed {
-					failedStrs[i] = fmt.Sprintf("%s: %v", f.name, f.err)
-				}
-				sb.WriteString("Failed: " + strings.Join(failedStrs, ", ") + "\n")
-			}
-			for _, l := range logs {
-				sb.WriteString("\n==> " + l.name + "\n")
-				sb.WriteString(l.logs)
-				if !strings.HasSuffix(l.logs, "\n") {
-					sb.WriteString("\n")
-				}
-			}
-		}
-
-		resultChan <- OperationResult{
-			Success: len(failed) == 0,
-			Error:   finalErr,
-			Logs:    sb.String(),
-		}
-
-		return nil
-	}
-
-	return execFunc, resultChan
 }
 
 func calculateSize(path string) int64 {

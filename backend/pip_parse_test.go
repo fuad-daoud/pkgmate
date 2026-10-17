@@ -162,6 +162,8 @@ func TestProcessPipPackage(t *testing.T) {
 		{"case-insensitive match", "PyYAML", "6.0.1", true},
 		{"module without package dir", "typing_extensions", "4.9.0", true},
 		{"absent package", "nonexistent", "1.0", false},
+		{"distro installer skipped", "debian_pkg", "1.0.0", false},
+		{"missing installer skipped", "no_installer_pkg", "1.0.0", false},
 	}
 
 	for _, tt := range tests {

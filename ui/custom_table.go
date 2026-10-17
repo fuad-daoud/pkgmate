@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"maps"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -14,6 +13,14 @@ type Column struct {
 	Title string
 }
 
+// defaultEmptyState is the text shown for a table with no rows after loading.
+const defaultEmptyState = "🔍 No results found"
+
+type Row struct {
+	Key   string
+	Cells []string
+}
+
 type customTableKeyMap struct {
 	up       key.Binding
 	down     key.Binding
@@ -21,7 +28,6 @@ type customTableKeyMap struct {
 	pagedown key.Binding
 	first    key.Binding
 	last     key.Binding
-	choose   key.Binding
 }
 
 func (k customTableKeyMap) ShortHelp() []key.Binding {
@@ -29,32 +35,31 @@ func (k customTableKeyMap) ShortHelp() []key.Binding {
 }
 
 func (k customTableKeyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{{k.up, k.down, k.pageup, k.pagedown}, {k.first, k.last, k.choose}}
+	return [][]key.Binding{{k.up, k.down, k.pageup, k.pagedown}, {k.first, k.last}}
 }
 
 type customTable struct {
-	label                 string
-	keys                  *customTableKeyMap
-	Columns               []string
-	mp                    map[string]int
-	OriginalRows          [][]string
-	StyledRows            map[string]lipgloss.Style
-	OriginalStyledRows    map[string]lipgloss.Style
-	Rows                  [][]string
-	NewRows               [][]string
-	cursor                int
-	offset                int
-	Height                int
-	Width                 int
-	focused               bool
-	loading               bool
-	spinner               spinner.Model
-	headerStyle           lipgloss.Style
-	cursorStyler          Styler
-	cellStyle             lipgloss.Style
-	selectStyler          Styler
-	cursorAndSelectStyler Styler
-	selectedRows          map[string]bool
+	label        string
+	keys         *customTableKeyMap
+	Columns      []string
+	mp           map[string]int
+	OriginalRows []Row
+	StyledRows   map[string]lipgloss.Style
+	Rows         []Row
+	NewRows      []Row
+	cursor       int
+	offset       int
+	Height       int
+	Width        int
+	focused      bool
+	loading      bool
+	spinner      spinner.Model
+	headerStyle  lipgloss.Style
+	cursorStyler Styler
+	cellStyle    lipgloss.Style
+	// emptyState is shown by View when the table holds no rows at all after
+	// loading. It defaults to the generic no-results text.
+	emptyState string
 }
 
 func newCustomTable(label string) *customTable {
@@ -65,31 +70,28 @@ func newCustomTable(label string) *customTable {
 		pagedown: key.NewBinding(key.WithKeys("pgdown", "ctrl+d"), key.WithHelp("pagedown/ctrl+d", "jump down")),
 		first:    key.NewBinding(key.WithKeys("home", "ctrl+g"), key.WithHelp("home/ctrl+g", "move to first")),
 		last:     key.NewBinding(key.WithKeys("end", "G"), key.WithHelp("end/G", "move to last")),
-		choose:   key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "select row"), key.WithDisabled()),
 	}
 
 	s := spinner.New(spinner.WithSpinner(spinner.Dot))
 
 	return &customTable{
-		label:                 label,
-		keys:                  &keys,
-		mp:                    make(map[string]int),
-		Columns:               []string{},
-		Rows:                  [][]string{},
-		NewRows:               [][]string{},
-		cursor:                0,
-		offset:                0,
-		focused:               true,
-		loading:               true,
-		spinner:               s,
-		headerStyle:           lipgloss.NewStyle().Bold(true).Padding(0, 1).BorderStyle(lipgloss.NormalBorder()).BorderBottom(true),
-		cursorStyler:          cursorRowStyler,
-		cellStyle:             lipgloss.NewStyle().Padding(0, 1),
-		StyledRows:            make(map[string]lipgloss.Style),
-		OriginalStyledRows:    make(map[string]lipgloss.Style),
-		selectStyler:          noStyler,
-		cursorAndSelectStyler: noStyler,
-		selectedRows:          map[string]bool{},
+		label:        label,
+		keys:         &keys,
+		mp:           make(map[string]int),
+		Columns:      []string{},
+		OriginalRows: []Row{},
+		Rows:         []Row{},
+		NewRows:      []Row{},
+		cursor:       0,
+		offset:       0,
+		focused:      true,
+		loading:      true,
+		spinner:      s,
+		headerStyle:  lipgloss.NewStyle().Bold(true).Padding(0, 1).BorderStyle(lipgloss.NormalBorder()).BorderBottom(true),
+		cursorStyler: cursorRowStyler,
+		cellStyle:    lipgloss.NewStyle().Padding(0, 1),
+		StyledRows:   make(map[string]lipgloss.Style),
+		emptyState:   defaultEmptyState,
 	}
 }
 
@@ -123,18 +125,6 @@ func (m *customTable) Focus() {
 
 func (m customTable) Focused() bool {
 	return m.focused
-}
-
-func (m *customTable) EnterSelectMode(selectStyler Styler, cursorMixStyler Styler) {
-	m.selectStyler = selectStyler
-	m.cursorAndSelectStyler = cursorMixStyler
-	m.keys.choose.SetEnabled(true)
-}
-
-func (m *customTable) ExitSelectMode() {
-	m.selectedRows = make(map[string]bool)
-	m.keys.choose.SetEnabled(false)
-	m.StyledRows = maps.Clone(m.OriginalStyledRows)
 }
 
 func (m customTable) Update(msg tea.Msg) (customTable, tea.Cmd) {
@@ -173,28 +163,14 @@ func (m customTable) Update(msg tea.Msg) (customTable, tea.Cmd) {
 			m.updateCursor(len(m.Rows) * -1)
 		case key.Matches(msg, m.keys.last):
 			m.updateCursor(len(m.Rows))
-		case key.Matches(msg, m.keys.choose):
-			firstCell := m.Rows[m.cursor][0]
-			if m.selectedRows[firstCell] {
-				delete(m.selectedRows, firstCell)
-			} else {
-				if oldStyle, ok := m.StyledRows[firstCell]; ok {
-					m.StyledRows[firstCell] = m.selectStyler(oldStyle)
-				} else {
-					m.StyledRows[firstCell] = m.selectStyler(lipgloss.NewStyle())
-				}
-				m.selectedRows[firstCell] = true
-			}
-
 		}
 	}
 
 	return m, tea.Batch(cmds...)
 }
 
-func (m customTable) addStyleRow(row string, style lipgloss.Style) {
-	m.StyledRows[row] = style
-	m.OriginalStyledRows[row] = style
+func (m *customTable) addStyleRow(key string, style lipgloss.Style) {
+	m.StyledRows[key] = style
 }
 
 func (m *customTable) updateCursor(n int) {
@@ -262,7 +238,14 @@ func (m *customTable) View() string {
 			Foreground(lipgloss.Color("#888888")).
 			Italic(true)
 
-		content := emptyStyle.Render("🔍 No results found")
+		// A table that never held a row shows its own empty state; a table whose
+		// rows were all filtered away shows the generic no-results text.
+		text := defaultEmptyState
+		if len(m.OriginalRows) == 0 && m.emptyState != "" {
+			text = m.emptyState
+		}
+
+		content := emptyStyle.Render(text)
 
 		emptyView := lipgloss.Place(
 			m.Width,
@@ -295,21 +278,19 @@ func (m *customTable) View() string {
 
 		for j := range m.Columns {
 			cellContent := ""
-			if j < len(row) {
-				cellContent = truncate(row[j], colWidth)
+			if j < len(row.Cells) {
+				cellContent = truncate(row.Cells[j], colWidth)
 			}
 
 			rowCells[j] = lipgloss.NewStyle().Width(colWidth).Render(cellContent)
 		}
 
 		currentRow := lipgloss.JoinHorizontal(lipgloss.Top, rowCells...)
-		rowStyle, ok := m.StyledRows[row[0]]
+		rowStyle, ok := m.StyledRows[row.Key]
 		if !ok {
 			rowStyle = lipgloss.NewStyle()
 		}
-		if i == m.cursor && m.Focused() && m.selectedRows[row[0]] {
-			rowStyle = m.cursorAndSelectStyler(rowStyle)
-		} else if i == m.cursor && m.Focused() {
+		if i == m.cursor && m.Focused() {
 			rowStyle = m.cursorStyler(rowStyle)
 		}
 
@@ -327,15 +308,21 @@ func (m *customTable) View() string {
 	return b.String()
 }
 
-func (m *customTable) addRow(row []string) {
-	if index, ok := m.mp[row[0]]; ok {
-		m.OriginalRows[index] = row
+func (m *customTable) addRow(key string, cells []string) {
+	if index, ok := m.mp[key]; ok {
+		m.OriginalRows[index] = Row{Key: key, Cells: cells}
+		for i := range m.Rows {
+			if m.Rows[i].Key == key {
+				m.Rows[i] = Row{Key: key, Cells: cells}
+				break
+			}
+		}
 		return
 	}
-	m.OriginalRows = append(m.OriginalRows, row)
-	m.mp[row[0]] = len(m.OriginalRows) - 1
+	m.OriginalRows = append(m.OriginalRows, Row{Key: key, Cells: cells})
+	m.mp[key] = len(m.OriginalRows) - 1
 	m.Rows = m.OriginalRows
-	m.NewRows = make([][]string, len(m.OriginalRows))
+	m.NewRows = make([]Row, len(m.OriginalRows))
 	m.adjustOffset()
 }
 
@@ -356,10 +343,10 @@ func (m *customTable) filterColumn(column, term string) {
 
 	index := 0
 	for _, row := range m.OriginalRows {
-		if columnIndex >= len(row) {
+		if columnIndex >= len(row.Cells) {
 			continue
 		}
-		if !strings.Contains(strings.ToLower(row[columnIndex]), term) {
+		if !strings.Contains(strings.ToLower(row.Cells[columnIndex]), term) {
 			continue
 		}
 		m.NewRows[index] = row

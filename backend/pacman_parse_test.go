@@ -50,6 +50,18 @@ func TestParsePacmanQi(t *testing.T) {
 			Name: "zoned-pkg", Version: "3.1-1", Size: pacmanBytes(1.5, 1<<30),
 			Date: time.Date(2026, time.September, 20, 14, 5, 15, 0, time.UTC), IsDirect: false,
 		},
+		{
+			Name: "python-black", Version: "24.2.0-1", Size: pacmanBytes(5.0, 1<<20),
+			Date: time.Date(2024, time.November, 28, 10, 30, 45, 0, time.UTC), IsDirect: false,
+		},
+		{
+			Name: "vlc", Version: "3.0.21-1", Size: pacmanBytes(50.0, 1<<20),
+			Date: time.Date(2024, time.November, 28, 10, 30, 45, 0, time.UTC), IsDirect: true,
+		},
+		{
+			Name: "gopls", Version: "0.18.1-1", Size: pacmanBytes(20.0, 1<<20),
+			Date: time.Date(2024, time.November, 28, 10, 30, 45, 0, time.UTC), IsDirect: false,
+		},
 	}
 
 	if len(got) != len(want) {
@@ -87,6 +99,20 @@ func TestParsePacmanQu(t *testing.T) {
 	}
 
 	got := parsePacmanQu(readPacmanFixture(t, "qu.txt"))
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestParseCheckupdatesFixture(t *testing.T) {
+	want := map[string]string{
+		"linux":          "6.12.2.arch1-1",
+		"firefox":        "132.0.1-1",
+		"bash":           "5.2.037-2",
+		"linux-firmware": "20241120-1",
+	}
+
+	got := parsePacmanQu(readPacmanFixture(t, "checkupdates.txt"))
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
 	}

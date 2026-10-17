@@ -14,12 +14,24 @@ A fast, cross-platform Terminal User Interface (TUI) for browsing the packages i
 
 pkgmate is a viewer today. It does:
 
-- List installed packages from every supported source that is present on the machine, in four tabs: direct, dependency, all and orphan packages.
+- List installed packages from every supported source that is present on the machine, in five tabs: direct, dependency, all and orphan packages, plus duplicates.
 - Mark packages that are frozen (held or pinned) and packages with a newer version available. For pacman, the newer version of AUR packages is looked up from the AUR.
 - Search the list with live fuzzy matching.
-- Refresh package databases ("update") for pacman, apt and Homebrew, running the privileged commands as described in [Privileged commands](#privileged-commands). The update flow is implemented in the backends but is not yet listed in the command palette.
 
-pkgmate does not yet install, remove or upgrade packages. Flatpak, Snap, npm, pip and Go have no update support either: they are skipped when an update runs.
+pkgmate does not yet install, remove or upgrade packages.
+
+### Duplicates
+
+- A **duplicate** is the same application installed through two or more different package managers, with at least one of the copies installed explicitly. pacman and its AUR packages count as one manager, and so do brew formulae and casks.
+- The **Duplicates** tab lists the copies of the same app on adjacent rows, the group with the largest combined size first. In the other tabs, the **Package Manager** cell of a grouped package names the other managers in its group, for example `pacman (+flatpak)`, and the footer reports how many apps are installed more than once.
+- Names are matched with a small set of per-ecosystem rules:
+  - names are compared lowercase, with `_` treated as `-`;
+  - Python packages match across pip, pipx, pacman `python-*` and apt `python3-*`;
+  - a trailing `-bin`, `-git` or `-appimage` is ignored on pacman names;
+  - Go binaries match by their file name (the command you run, e.g. `gopls`), not by the module they were built from;
+  - Flatpak apps match by the last part of their application ID, with a small built-in alias list for well-known apps whose ID does not normalise to their common name;
+  - **npm global packages are matched by name alone, so an unrelated package that happens to share a name can be reported.**
+- pkgmate only reports duplicates. It never removes anything.
 
 ## Features
 
@@ -27,8 +39,7 @@ pkgmate does not yet install, remove or upgrade packages. Flatpak, Snap, npm, pi
 - 🔍 **Telescope-style search** - Live fuzzy search through packages
 - 📦 **Multi-backend support** - pacman/AUR, dpkg/apt, Homebrew, Flatpak, Snap, npm, pip/pipx, Go
 - 🔒 **Security-first** - GPG signing, automated vulnerability scanning
-- 📊 **Clean interface** - Table view with virtual scrolling, visual indicators for available updates and frozen packages, plus an orphan tab
-- ⚡ **Privilege escalation** - pkexec (PolicyKit) with sudo fallback
+- 📊 **Clean interface** - Table view with virtual scrolling, visual indicators for available updates and frozen packages, plus orphan and duplicates tabs
 - 🎨 **Command palette** - Quick access to all features (Ctrl+k or Ctrl+p)
 
 ## Supported Sources
@@ -143,23 +154,24 @@ pkgmate --version
 - `Ctrl+P` or `Ctrl+k` - Command palette
 - `Ctrl+C` - Quit
 
-## Privileged commands
+## Security model
 
-Refreshing a package database needs root, so pkgmate itself refuses to start as root and escalates only for the command that needs it. For each privileged command it:
+pkgmate only reads. It refuses to start as root, it never calls `sudo` or `pkexec`, and every external command is run as argv with no shell.
 
-1. Resolves the command to an absolute path.
-2. Runs it through `pkexec <path> <args>`. If `pkexec` is not installed, cannot be started, or exits with 126 or 127 (authentication dismissed or not authorized), it retries with `sudo -- <path> <args>`.
-3. Runs the argv directly, without a shell, so no argument is ever interpreted by one.
+These are the queries it runs, all as your user. The Network column says whether the query uses the network.
 
-The exact argv is written to the application log (Debug Console). The command's output is shown live in the terminal while it runs, and kept so pkgmate can show it again afterwards.
+| Source | Queries | Network |
+|--------|---------|---------|
+| pacman | `pacman -Qi`, `-Qeq`, `-Qmq`, `-Qu`, `-Qtdq`; reads `/etc/pacman.conf`; `checkupdates --nocolor` when installed (pacman-contrib) | `checkupdates` syncs a private copy of the sync databases under `$TMPDIR/checkup-db-$UID` with `fakeroot`; the system databases are not touched. The AUR RPC (`https://aur.archlinux.org/rpc/v5/info`) is an HTTPS lookup for AUR versions. |
+| dpkg/apt | `dpkg --get-selections`, `apt list --upgradable`, `apt-get --simulate autoremove`; reads `/var/lib/dpkg/status` | none |
+| Homebrew | `brew --cellar`, `brew --prefix`, `brew outdated --json=v2`, `brew autoremove --dry-run` | |
+| Flatpak | `flatpak list --app [--columns=…]` | |
+| Snap | `snap list`, `snap refresh --list` | `snap refresh --list` asks snapd and the store; it does not refresh |
+| npm | `npm root -g`, `npm list -g --json --depth=0` | |
+| pip | `pip`/`pip3 list --format=json`, `pip show pip`, `pip list --outdated --format=json`, `pipx list [--json]` | `pip list --outdated` queries the package index |
+| Go | reads build info of binaries in `$GOBIN`, `$GOPATH/bin` or `~/go/bin`; no command | |
 
-The commands pkgmate runs today:
-
-| Source | Command | Escalation |
-|--------|---------|------------|
-| pacman | `pacman -Syy --noconfirm` | pkexec, then sudo |
-| dpkg/apt | `apt-get update`, or `apt update` when `apt-get` is missing | pkexec, then sudo |
-| Homebrew | `brew update` | none, runs as your user |
+The crash screen can also pipe the report to `pbcopy`, `wl-copy`, `xclip` or `xsel` when you ask it to.
 
 ## Verifying Downloads
 

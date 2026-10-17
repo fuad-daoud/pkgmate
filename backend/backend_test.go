@@ -30,10 +30,6 @@ func (f *fakeNestedBackend) LoadPackages(wg *sync.WaitGroup, send func(Package))
 	})
 }
 
-func (f *fakeNestedBackend) Update() (func() error, chan OperationResult) {
-	return nil, nil
-}
-
 func TestLoadAllPackages(t *testing.T) {
 	backendMutex.Lock()
 	origBackends := registeredBackends
