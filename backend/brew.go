@@ -105,6 +105,7 @@ func (b *BrewBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 					}
 					receiptPath := filepath.Join(verEntry.Name(), "INSTALL_RECEIPT.json")
 					receiptData, err := root.ReadFile(receiptPath)
+					root.Close()
 					if err != nil {
 						slog.Warn("could not read data for package", "package", pkgName, "err", err)
 						continue
