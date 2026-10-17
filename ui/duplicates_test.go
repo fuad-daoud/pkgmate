@@ -194,6 +194,32 @@ func TestDuplicatesTabEmptyStateAndLoading(t *testing.T) {
 	}
 }
 
+func TestFooterDuplicateCount(t *testing.T) {
+	m := newLoadedModel(t, pacmanFirefox(), flatpakFirefox())
+	m.tables[0].Width = 240
+	if got := m.footerView(); strings.Contains(got, "installed more than once") {
+		t.Errorf("no groups means no footer count, got:\n%s", got)
+	}
+
+	updated, _ := m.Update(FinishedLoadingPackagesMsg{})
+	m = updated.(tableModel)
+	if got := m.footerView(); !strings.Contains(got, "1 app installed more than once") {
+		t.Errorf("expected %q in:\n%s", "1 app installed more than once", got)
+	}
+
+	two := newLoadedModel(t,
+		pacmanFirefox(), flatpakFirefox(),
+		backend.Package{Name: "curl", DB: "pacman", IsDirect: true},
+		backend.Package{Name: "curl", DB: "brew", IsDirect: true},
+	)
+	two.tables[0].Width = 240
+	updated, _ = two.Update(FinishedLoadingPackagesMsg{})
+	two = updated.(tableModel)
+	if got := two.footerView(); !strings.Contains(got, "2 apps installed more than once") {
+		t.Errorf("expected %q in:\n%s", "2 apps installed more than once", got)
+	}
+}
+
 func TestMarkerSurvivesManagerFilter(t *testing.T) {
 	m := newLoadedModel(t, pacmanFirefox(), flatpakFirefox())
 	updated, _ := m.Update(FinishedLoadingPackagesMsg{})

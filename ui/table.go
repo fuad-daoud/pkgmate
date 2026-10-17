@@ -417,7 +417,15 @@ func (m tableModel) tabsView() string {
 func (m tableModel) footerView() string {
 	cursor := bottomRightTab.Render(strconv.Itoa(m.table().cursor + 1))
 	count := bottomRightTab.Render(strconv.Itoa(len(m.table().Rows)))
-	rightSection := lipgloss.JoinHorizontal(lipgloss.Top, cursor, count)
+	parts := []string{cursor, count}
+	if len(m.duplicates) > 0 {
+		noun := "apps"
+		if len(m.duplicates) == 1 {
+			noun = "app"
+		}
+		parts = append(parts, bottomRightTab.Foreground(mutedColor).Render(strconv.Itoa(len(m.duplicates))+" "+noun+" installed more than once"))
+	}
+	rightSection := lipgloss.JoinHorizontal(lipgloss.Top, parts...)
 
 	styledSearch := bottomLeftTab.Render(m.search.View())
 	leftSectionTabs := make([]string, 0)
