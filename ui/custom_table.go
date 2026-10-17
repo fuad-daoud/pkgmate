@@ -226,6 +226,13 @@ func (m *customTable) adjustOffset() {
 	}
 }
 
+func (m *customTable) columnWidth() int {
+	if len(m.Columns) == 0 {
+		return 0
+	}
+	return max(0, m.Width/len(m.Columns))
+}
+
 func (m *customTable) View() string {
 	if len(m.Columns) == 0 {
 		return ""
@@ -270,10 +277,11 @@ func (m *customTable) View() string {
 
 	var b strings.Builder
 
+	colWidth := m.columnWidth()
 	headerCells := make([]string, len(m.Columns))
 	for i, col := range m.Columns {
-		content := truncate(col, m.Width/len(m.Columns))
-		headerCells[i] = m.headerStyle.Width(m.Width / len(m.Columns)).Render(content)
+		content := truncate(col, colWidth)
+		headerCells[i] = m.headerStyle.Width(colWidth).Render(content)
 	}
 	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, headerCells...))
 	b.WriteString("\n")
@@ -288,13 +296,13 @@ func (m *customTable) View() string {
 		for j := range m.Columns {
 			cellContent := ""
 			if j < len(row) {
-				cellContent = truncate(row[j], m.Width/len(m.Columns))
+				cellContent = truncate(row[j], colWidth)
 			}
 
-			rowCells[j] = lipgloss.NewStyle().Width(m.Width / len(m.Columns)).Render(cellContent)
+			rowCells[j] = lipgloss.NewStyle().Width(colWidth).Render(cellContent)
 		}
 
-		curruentRow := lipgloss.JoinHorizontal(lipgloss.Top, rowCells...)
+		currentRow := lipgloss.JoinHorizontal(lipgloss.Top, rowCells...)
 		rowStyle, ok := m.StyledRows[row[0]]
 		if !ok {
 			rowStyle = lipgloss.NewStyle()
@@ -305,7 +313,7 @@ func (m *customTable) View() string {
 			rowStyle = m.cursorStyler(rowStyle)
 		}
 
-		b.WriteString(rowStyle.Render(curruentRow))
+		b.WriteString(rowStyle.Render(currentRow))
 		if i < endIdx-1 {
 			b.WriteString("\n")
 		}
@@ -364,6 +372,9 @@ func (m *customTable) filterColumn(column, term string) {
 }
 
 func truncate(s string, width int) string {
+	if s == "" {
+		return ""
+	}
 	if len(s) <= width-2 {
 		return s
 	}

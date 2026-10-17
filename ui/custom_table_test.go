@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -118,4 +119,87 @@ func TestFilterColumn(t *testing.T) {
 			t.Fatalf("expected 1 row with 'RipGrep', got %v", table.Rows)
 		}
 	})
+}
+
+func TestColumnWidth(t *testing.T) {
+	tests := []struct {
+		name     string
+		cols     []string
+		width    int
+		expected int
+	}{
+		{"5 columns at width 100", []string{"1", "2", "3", "4", "5"}, 100, 20},
+		{"5 columns at width 9", []string{"1", "2", "3", "4", "5"}, 9, 1},
+		{"5 columns at width 0", []string{"1", "2", "3", "4", "5"}, 0, 0},
+		{"5 columns at negative width", []string{"1", "2", "3", "4", "5"}, -10, 0},
+		{"0 columns", []string{}, 100, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tbl := newCustomTable("test")
+			tbl.Columns = tt.cols
+			tbl.Width = tt.width
+			got := tbl.columnWidth()
+			if got != tt.expected {
+				t.Fatalf("expected columnWidth %d, got %d", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestTruncate(t *testing.T) {
+	t.Run("Empty string at width -1, 0, 1, 2", func(t *testing.T) {
+		widths := []int{-1, 0, 1, 2}
+		for _, w := range widths {
+			got := truncate("", w)
+			if got != "" {
+				t.Fatalf("truncate(\"\", %d) = %q; want \"\"", w, got)
+			}
+		}
+	})
+
+	t.Run("A short string that fits", func(t *testing.T) {
+		s := "abc"
+		got := truncate(s, 10)
+		if got != "abc" {
+			t.Fatalf("truncate(%q, 10) = %q; want %q", s, got, "abc")
+		}
+	})
+
+	t.Run("A long string at width 10", func(t *testing.T) {
+		s := "longstringhere"
+		expected := s[:5] + "..."
+		got := truncate(s, 10)
+		if got != expected {
+			t.Fatalf("truncate(%q, 10) = %q; want %q", s, got, expected)
+		}
+	})
+
+	t.Run("Width 0 and width 1 on a non-empty string", func(t *testing.T) {
+		s := "nonempty"
+		expected := s[:1] + "..."
+		for _, w := range []int{0, 1} {
+			got := truncate(s, w)
+			if got != expected {
+				t.Fatalf("truncate(%q, %d) = %q; want %q", s, w, got, expected)
+			}
+		}
+	})
+}
+
+func TestCustomTableView(t *testing.T) {
+	widths := []int{0, 9}
+	for _, w := range widths {
+		t.Run(fmt.Sprintf("Width %d with empty cell does not panic", w), func(t *testing.T) {
+			tbl := newCustomTable("test")
+			tbl.Columns = []string{"Name", "Version", "Size", "Date", "Status"}
+			tbl.addRow([]string{"curl", "", "1MB", "2024-01-01", "installed"})
+			tbl.Width = w
+			tbl.Height = 10
+			tbl.SetLoading(false)
+			out := tbl.View()
+			_ = out
+		})
+	}
 }
