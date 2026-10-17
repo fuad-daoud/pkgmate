@@ -17,7 +17,7 @@ pkgmate is a viewer today. It does:
 - List installed packages from every supported source that is present on the machine, in four tabs: direct, dependency, all and orphan packages.
 - Mark packages that are frozen (held or pinned) and packages with a newer version available. For pacman, the newer version of AUR packages is looked up from the AUR.
 - Search the list with live fuzzy matching.
-- Refresh package databases ("update") for pacman, apt and Homebrew, running the privileged commands as described in [Privileged commands](#privileged-commands). The update flow is implemented in the backends but is not yet listed in the command palette.
+- Refresh package databases ("update") for pacman, apt and Homebrew, running the privileged commands as described in [Privileged commands](#privileged-commands). Run it from the command palette with "Update System".
 
 pkgmate does not yet install, remove or upgrade packages. Flatpak, Snap, npm, pip and Go have no update support either: they are skipped when an update runs.
 
