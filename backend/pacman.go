@@ -333,7 +333,7 @@ func parseDate(dateStr string) time.Time {
 		}
 	}
 
-	return time.Now()
+	return time.Time{}
 }
 
 func (p PacmanBackend) String() string {
