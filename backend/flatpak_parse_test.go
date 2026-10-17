@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func sz(v float64, mult int64) int64 {
@@ -25,17 +26,17 @@ func readFlatpakFixture(t *testing.T, name string) string {
 }
 
 func TestParseFlatpakList(t *testing.T) {
-	pkg := func(name, version string, size int64) Package {
-		return Package{Name: name, Version: version, Size: size, IsDirect: true, DB: "flatpak"}
+	pkg := func(id, name, version string, size int64) Package {
+		return Package{ID: id, Name: name, Version: version, Size: size, IsDirect: true, DB: "flatpak"}
 	}
 
 	// [PIN] sizes use 1024 multipliers although flatpak/GLib units are decimal (1000).
 	want := []Package{
-		pkg("OBS Studio", "32.2.2", sz(528.5, 1<<20)),
-		pkg("GNU Image Manipulation Program", "2.10.38", sz(1.1, 1<<30)),
-		pkg("Firefox", "131.0.3", sz(256.0, 1<<20)),
-		pkg("Calculator", "46.1", sz(312.0, 1<<10)),
-		pkg("VLC", "3.0.21", sz(410.2, 1<<20)),
+		pkg("com.obsproject.Studio", "OBS Studio", "32.2.2", sz(528.5, 1<<20)),
+		pkg("org.gimp.GIMP", "GNU Image Manipulation Program", "2.10.38", sz(1.1, 1<<30)),
+		pkg("org.mozilla.firefox", "Firefox", "131.0.3", sz(256.0, 1<<20)),
+		pkg("org.gnome.Calculator", "Calculator", "46.1", sz(312.0, 1<<10)),
+		pkg("org.videolan.VLC", "VLC", "3.0.21", sz(410.2, 1<<20)),
 	}
 
 	got := parseFlatpakList(readFlatpakFixture(t, "list.txt"))
@@ -48,6 +49,7 @@ func TestParseFlatpakListEmptyVersion(t *testing.T) {
 	t.Skip("known bug: empty version column shifts the last name word into Version (or drops single-word-name rows)")
 
 	want := []Package{{
+		ID:   "org.gimp.GIMP",
 		Name: "GNU Image Manipulation Program", Version: "", Size: sz(1.1, 1<<30),
 		IsDirect: true, DB: "flatpak",
 	}}
@@ -55,6 +57,27 @@ func TestParseFlatpakListEmptyVersion(t *testing.T) {
 	got := parseFlatpakList(readFlatpakFixture(t, "list-no-version.txt"))
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %+v\nwant %+v", got, want)
+	}
+}
+
+func TestGetFlatpakInstallDateByID(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	fakeID := "org.pkgmate.test.FakeApp"
+	appDir := filepath.Join(tmpDir, ".local", "share", "flatpak", "app", fakeID)
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	fixedTime := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(appDir, fixedTime, fixedTime); err != nil {
+		t.Fatal(err)
+	}
+
+	got := getFlatpakInstallDate(fakeID)
+	if !got.Equal(fixedTime) {
+		t.Errorf("getFlatpakInstallDate(%q) = %v, want %v", fakeID, got, fixedTime)
 	}
 }
 

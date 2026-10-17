@@ -234,6 +234,15 @@ func processPipPackage(name, version, sitePackages string) Package {
 		return Package{}
 	}
 
+	installerData, err := os.ReadFile(filepath.Join(distInfoDir, "INSTALLER"))
+	if err != nil {
+		return Package{}
+	}
+	installer := strings.ToLower(strings.TrimSpace(string(installerData)))
+	if installer != "pip" && installer != "uv" {
+		return Package{}
+	}
+
 	pkgDir := getPackageDir(sitePackages, name)
 	size := calculateSize(pkgDir)
 	size += calculateSize(distInfoDir)

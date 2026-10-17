@@ -110,3 +110,69 @@ Install Date    : Sun 20 Sep 2026 05:05:15 PM +03
 Install Reason  : Installed as a dependency for another package
 Install Script  : No
 Validated By    : Signature
+
+Name            : python-black
+Version         : 24.2.0-1
+Description     : Uncompromising Python code formatter
+Architecture    : any
+URL             : https://github.com/psf/black
+Licenses        : MIT
+Groups          : None
+Provides        : None
+Depends On      : python
+Optional Deps   : None
+Required By     : None
+Optional For    : None
+Conflicts With  : None
+Replaces        : None
+Installed Size  : 5.00 MiB
+Packager        : Example Packager <packager@archlinux.org>
+Build Date      : Wed 04 Sep 2024 08:13:10 AM UTC
+Install Date    : Thu 28 Nov 2024 10:30:45 AM UTC
+Install Reason  : Installed as a dependency for another package
+Install Script  : No
+Validated By    : Signature
+
+Name            : vlc
+Version         : 3.0.21-1
+Description     : Multi-platform MPEG, VCD/DVD, and DivX player
+Architecture    : x86_64
+URL             : https://www.videolan.org/vlc/
+Licenses        : GPL-2.0-or-later
+Groups          : None
+Provides        : None
+Depends On      : None
+Optional Deps   : None
+Required By     : None
+Optional For    : None
+Conflicts With  : None
+Replaces        : None
+Installed Size  : 50.00 MiB
+Packager        : Example Packager <packager@archlinux.org>
+Build Date      : Wed 04 Sep 2024 08:13:10 AM UTC
+Install Date    : Thu 28 Nov 2024 10:30:45 AM UTC
+Install Reason  : Explicitly installed
+Install Script  : No
+Validated By    : Signature
+
+Name            : gopls
+Version         : 0.18.1-1
+Description     : Language server for Go
+Architecture    : x86_64
+URL             : https://golang.org/x/tools/gopls
+Licenses        : BSD-3-Clause
+Groups          : None
+Provides        : None
+Depends On      : None
+Optional Deps   : None
+Required By     : None
+Optional For    : None
+Conflicts With  : None
+Replaces        : None
+Installed Size  : 20.00 MiB
+Packager        : Example Packager <packager@archlinux.org>
+Build Date      : Wed 04 Sep 2024 08:13:10 AM UTC
+Install Date    : Thu 28 Nov 2024 10:30:45 AM UTC
+Install Reason  : Installed as a dependency for another package
+Install Script  : No
+Validated By    : Signature

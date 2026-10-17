@@ -14,11 +14,24 @@ A fast, cross-platform Terminal User Interface (TUI) for browsing the packages i
 
 pkgmate is a viewer today. It does:
 
-- List installed packages from every supported source that is present on the machine, in four tabs: direct, dependency, all and orphan packages.
+- List installed packages from every supported source that is present on the machine, in five tabs: direct, dependency, all and orphan packages, plus duplicates.
 - Mark packages that are frozen (held or pinned) and packages with a newer version available. For pacman, the newer version of AUR packages is looked up from the AUR.
 - Search the list with live fuzzy matching.
 
 pkgmate does not yet install, remove or upgrade packages.
+
+### Duplicates
+
+- A **duplicate** is the same application installed through two or more different package managers, with at least one of the copies installed explicitly. pacman and its AUR packages count as one manager, and so do brew formulae and casks.
+- The **Duplicates** tab lists the copies of the same app on adjacent rows, the group with the largest combined size first. In the other tabs, the **Package Manager** cell of a grouped package names the other managers in its group, for example `pacman (+flatpak)`, and the footer reports how many apps are installed more than once.
+- Names are matched with a small set of per-ecosystem rules:
+  - names are compared lowercase, with `_` treated as `-`;
+  - Python packages match across pip, pipx, pacman `python-*` and apt `python3-*`;
+  - a trailing `-bin`, `-git` or `-appimage` is ignored on pacman names;
+  - Go binaries match by the last element of the module path, and a trailing major-version element such as `v2` is skipped in favour of the one before it;
+  - Flatpak apps match by the last part of their application ID, with a small built-in alias list for well-known apps whose ID does not normalise to their common name;
+  - **npm global packages are matched by name alone, so an unrelated package that happens to share a name can be reported.**
+- pkgmate only reports duplicates. It never removes anything.
 
 ## Features
 
@@ -26,7 +39,7 @@ pkgmate does not yet install, remove or upgrade packages.
 - 🔍 **Telescope-style search** - Live fuzzy search through packages
 - 📦 **Multi-backend support** - pacman/AUR, dpkg/apt, Homebrew, Flatpak, Snap, npm, pip/pipx, Go
 - 🔒 **Security-first** - GPG signing, automated vulnerability scanning
-- 📊 **Clean interface** - Table view with virtual scrolling, visual indicators for available updates and frozen packages, plus an orphan tab
+- 📊 **Clean interface** - Table view with virtual scrolling, visual indicators for available updates and frozen packages, plus orphan and duplicates tabs
 - 🎨 **Command palette** - Quick access to all features (Ctrl+k or Ctrl+p)
 
 ## Supported Sources

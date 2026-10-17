@@ -26,6 +26,7 @@ func TestParseDpkgStatus(t *testing.T) {
 		{Name: "ca-certificates", Version: "20240203~22.04.1", Size: 0},
 		{Name: "libc6", Version: "2.35-0ubuntu3.8", Size: 13182 * 1024},
 		{Name: "libc6", Version: "2.35-0ubuntu3.8", Size: 12000 * 1024},
+		{Name: "python3-requests", Version: "2.27.1-1", Size: 450 * 1024},
 	}
 
 	got := parseDpkgStatus(readDpkgFixture(t, "status"))
