@@ -16,8 +16,8 @@ type fakeBackend struct {
 	updateFn    func() (func() error, chan OperationResult)
 }
 
-func (f *fakeBackend) Name() string                                     { return f.name }
-func (f *fakeBackend) IsAvailable() bool                                { return f.isAvailable }
+func (f *fakeBackend) Name() string                                        { return f.name }
+func (f *fakeBackend) IsAvailable() bool                                   { return f.isAvailable }
 func (f *fakeBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {}
 func (f *fakeBackend) Update() (func() error, chan OperationResult) {
 	if f.updateFn != nil {

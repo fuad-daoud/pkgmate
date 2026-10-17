@@ -266,7 +266,7 @@ func (m *customTable) View() string {
 
 		emptyView := lipgloss.Place(
 			m.Width,
-			m.Height + 1,
+			m.Height+1,
 			lipgloss.Center,
 			lipgloss.Center,
 			content,

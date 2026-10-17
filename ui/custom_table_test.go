@@ -223,4 +223,3 @@ func TestTablePackageLoadedDate(t *testing.T) {
 		t.Fatalf("expected '2024-05-01', got %q", got)
 	}
 }
-

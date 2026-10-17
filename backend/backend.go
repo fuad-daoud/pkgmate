@@ -15,7 +15,6 @@ import (
 
 var ErrUpdateNotImplemented = errors.New("update not implemented")
 
-
 type Package struct {
 	Name         string
 	Version      string
@@ -90,7 +89,7 @@ func LoadAllPackages() (chan Package, error) {
 	start := time.Now()
 
 	var wg sync.WaitGroup
-	send := func(p Package) {outChan <- p}
+	send := func(p Package) { outChan <- p }
 	for _, backend := range backends {
 		wg.Go(func() {
 			backend.LoadPackages(&wg, send)
