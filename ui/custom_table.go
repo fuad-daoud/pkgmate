@@ -332,12 +332,25 @@ func (m *customTable) addRow(row []string) {
 }
 
 func (m *customTable) filterColumn(column, term string) {
-	index := 0
-	columnIndex := 0
-	for m.Columns[columnIndex] != column {
-		columnIndex++
+	if len(m.Columns) == 0 {
+		return
 	}
+	columnIndex := -1
+	for i, col := range m.Columns {
+		if col == column {
+			columnIndex = i
+			break
+		}
+	}
+	if columnIndex == -1 {
+		return
+	}
+
+	index := 0
 	for _, row := range m.OriginalRows {
+		if columnIndex >= len(row) {
+			continue
+		}
 		if !strings.Contains(strings.ToLower(row[columnIndex]), term) {
 			continue
 		}
