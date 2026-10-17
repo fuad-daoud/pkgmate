@@ -50,6 +50,18 @@ func TestParsePacmanQi(t *testing.T) {
 			Name: "zoned-pkg", Version: "3.1-1", Size: pacmanBytes(1.5, 1<<30),
 			Date: time.Date(2026, time.September, 20, 14, 5, 15, 0, time.UTC), IsDirect: false,
 		},
+		{
+			Name: "python-black", Version: "24.2.0-1", Size: pacmanBytes(5.0, 1<<20),
+			Date: time.Date(2024, time.November, 28, 10, 30, 45, 0, time.UTC), IsDirect: false,
+		},
+		{
+			Name: "vlc", Version: "3.0.21-1", Size: pacmanBytes(50.0, 1<<20),
+			Date: time.Date(2024, time.November, 28, 10, 30, 45, 0, time.UTC), IsDirect: true,
+		},
+		{
+			Name: "gopls", Version: "0.18.1-1", Size: pacmanBytes(20.0, 1<<20),
+			Date: time.Date(2024, time.November, 28, 10, 30, 45, 0, time.UTC), IsDirect: false,
+		},
 	}
 
 	if len(got) != len(want) {

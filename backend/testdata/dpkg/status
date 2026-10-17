@@ -68,3 +68,12 @@ Architecture: i386
 Multi-Arch: same
 Version: 2.35-0ubuntu3.8
 Description: GNU C Library: Shared libraries
+
+Package: python3-requests
+Status: install ok installed
+Priority: optional
+Section: python
+Installed-Size: 450
+Architecture: all
+Version: 2.27.1-1
+Description: elegant and simple HTTP library for Python, built for human beings
