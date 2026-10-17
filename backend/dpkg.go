@@ -49,45 +49,7 @@ func (d *DpkgBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 	orphanNames := getOrphanPackageNames()
 
 	wg.Go(func() {
-		paragraphs := strings.SplitSeq(string(data), "\n\n")
-
-		for para := range paragraphs {
-			if para == "" {
-				continue
-			}
-
-			if !strings.Contains(para, "Status: install ok installed") && !strings.Contains(para, "Status: hold ok installed") {
-				continue
-			}
-
-			var pkg Package
-			lines := strings.SplitSeq(para, "\n")
-
-			for line := range lines {
-				if strings.HasPrefix(line, " ") {
-					continue
-				}
-
-				parts := strings.SplitN(line, ": ", 2)
-				if len(parts) != 2 {
-					continue
-				}
-
-				key := parts[0]
-				value := parts[1]
-
-				switch key {
-				case "Package":
-					pkg.Name = value
-				case "Version":
-					pkg.Version = value
-				case "Installed-Size":
-					if size, err := strconv.ParseInt(value, 10, 64); err == nil {
-						pkg.Size = size * 1024
-					}
-				}
-			}
-
+		for _, pkg := range parseDpkgStatus(string(data)) {
 			if pkg.Name != "" {
 				listFile := fmt.Sprintf("/var/lib/dpkg/info/%s.list", pkg.Name)
 				if info, err := os.Stat(listFile); err == nil {
@@ -130,6 +92,56 @@ func (d *DpkgBackend) Update() (func() error, chan OperationResult) {
 	}, resultChan
 }
 
+func parseDpkgStatus(data string) []Package {
+	var pkgs []Package
+
+	paragraphs := strings.SplitSeq(data, "\n\n")
+
+	for para := range paragraphs {
+		if para == "" {
+			continue
+		}
+
+		if !strings.Contains(para, "Status: install ok installed") && !strings.Contains(para, "Status: hold ok installed") {
+			continue
+		}
+
+		var pkg Package
+		lines := strings.SplitSeq(para, "\n")
+
+		for line := range lines {
+			if strings.HasPrefix(line, " ") {
+				continue
+			}
+
+			parts := strings.SplitN(line, ": ", 2)
+			if len(parts) != 2 {
+				continue
+			}
+
+			key := parts[0]
+			value := parts[1]
+
+			switch key {
+			case "Package":
+				pkg.Name = value
+			case "Version":
+				pkg.Version = value
+			case "Installed-Size":
+				if size, err := strconv.ParseInt(value, 10, 64); err == nil {
+					pkg.Size = size * 1024
+				}
+			}
+		}
+
+		if pkg.Name != "" {
+			pkgs = append(pkgs, pkg)
+		}
+	}
+
+	return pkgs
+}
+
 func getAutoInstalledPackages() map[string]bool {
 	autoInstalled := make(map[string]bool)
 
@@ -138,7 +150,13 @@ func getAutoInstalledPackages() map[string]bool {
 		return autoInstalled
 	}
 
-	paragraphs := strings.SplitSeq(string(data), "\n\n")
+	return parseAptExtendedStates(string(data))
+}
+
+func parseAptExtendedStates(data string) map[string]bool {
+	autoInstalled := make(map[string]bool)
+
+	paragraphs := strings.SplitSeq(data, "\n\n")
 	for para := range paragraphs {
 		if para == "" {
 			continue
@@ -173,7 +191,13 @@ func getUpgradableVersions() map[string]string {
 		return available
 	}
 
-	for line := range strings.SplitSeq(string(output), "\n") {
+	return parseAptListUpgradable(string(output))
+}
+
+func parseAptListUpgradable(out string) map[string]string {
+	available := make(map[string]string)
+
+	for line := range strings.SplitSeq(out, "\n") {
 		if line == "" || strings.HasPrefix(line, "Listing") {
 			continue
 		}
@@ -200,7 +224,13 @@ func getHeldPackages() map[string]bool {
 		return held
 	}
 
-	for line := range strings.SplitSeq(string(output), "\n") {
+	return parseDpkgSelections(string(output))
+}
+
+func parseDpkgSelections(out string) map[string]bool {
+	held := make(map[string]bool)
+
+	for line := range strings.SplitSeq(out, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) == 2 && fields[1] == "hold" {
 			held[fields[0]] = true
@@ -219,7 +249,13 @@ func getOrphanPackageNames() map[string]bool {
 		return orphans
 	}
 
-	for line := range strings.SplitSeq(string(output), "\n") {
+	return parseAptAutoremoveSim(string(output))
+}
+
+func parseAptAutoremoveSim(out string) map[string]bool {
+	orphans := make(map[string]bool)
+
+	for line := range strings.SplitSeq(out, "\n") {
 		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, "Remv ") {
 			continue
