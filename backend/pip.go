@@ -279,7 +279,10 @@ func findDistInfoDir(sitePackages, name, version string) string {
 	}
 
 	pattern := filepath.Join(sitePackages, "*.dist-info")
-	matches, _ := filepath.Glob(pattern)
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		slog.Warn("failed to glob pattern", "pattern", pattern, "err", err)
+	}
 
 	for _, match := range matches {
 		baseName := filepath.Base(match)
