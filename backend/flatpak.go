@@ -44,7 +44,7 @@ func (f *FlatpakBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 		}
 
 		for _, pkg := range parseFlatpakList(string(output)) {
-			pkg.Date = getFlatpakInstallDate(pkg.Name)
+			pkg.Date = getFlatpakInstallDate(pkg.ID)
 
 			load(pkg)
 		}
@@ -79,6 +79,7 @@ func parseFlatpakList(out string) []Package {
 			continue
 		}
 
+		appID := fields[0]
 		version := fields[sizeIdx-1]
 		sizeStr := fields[sizeIdx] + fields[sizeIdx+1]
 
@@ -88,6 +89,7 @@ func parseFlatpakList(out string) []Package {
 		size := parseFlatpakSize(sizeStr)
 
 		pkgs = append(pkgs, Package{
+			ID:       appID,
 			Name:     name,
 			Version:  version,
 			Size:     size,

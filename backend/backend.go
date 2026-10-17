@@ -10,6 +10,7 @@ import (
 )
 
 type Package struct {
+	ID           string // native identifier when it differs from Name (Flatpak application ID); empty otherwise
 	Name         string
 	Version      string
 	NewVersion   string
