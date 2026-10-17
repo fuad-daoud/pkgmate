@@ -1,0 +1,1 @@
+org.gimp.GIMP	GNU Image Manipulation Program		1.1 GB	system

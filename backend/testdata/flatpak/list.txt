@@ -1,0 +1,5 @@
+com.obsproject.Studio	OBS Studio	32.2.2	528.5 MB	system
+org.gimp.GIMP	GNU Image Manipulation Program	2.10.38	1.1 GB	system
+org.mozilla.firefox	Firefox	131.0.3	256.0 MB	user
+org.gnome.Calculator	Calculator	46.1	312.0 kB	user
+org.videolan.VLC	VLC	3.0.21	410.2 MB	system
