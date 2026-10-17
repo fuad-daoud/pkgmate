@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
+
+	"pkgmate/backend"
 )
 
 func TestFilterColumn(t *testing.T) {
@@ -203,3 +206,21 @@ func TestCustomTableView(t *testing.T) {
 		})
 	}
 }
+
+func TestTablePackageLoadedDate(t *testing.T) {
+	tblModel := newTable()
+	p1 := backend.Package{Name: "pkg1"}
+	updated, _ := tblModel.Update(PackageLoadedMsg{pkgs: p1})
+	tblModel = updated.(tableModel)
+	if got := tblModel.tables[2].Rows[0][4]; got != "unknown" {
+		t.Fatalf("expected 'unknown' for zero date, got %q", got)
+	}
+
+	p2 := backend.Package{Name: "pkg2", Date: time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)}
+	updated, _ = tblModel.Update(PackageLoadedMsg{pkgs: p2})
+	tblModel = updated.(tableModel)
+	if got := tblModel.tables[2].Rows[1][4]; got != "2024-05-01" {
+		t.Fatalf("expected '2024-05-01', got %q", got)
+	}
+}
+

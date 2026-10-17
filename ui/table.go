@@ -141,7 +141,11 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case PackageLoadedMsg:
 		pkg := msg.pkgs
-		row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.DB, pkg.FormatSize(), pkg.Date.Format("2006-01-02")}
+		dateStr := "unknown"
+		if !pkg.Date.IsZero() {
+			dateStr = pkg.Date.Format("2006-01-02")
+		}
+		row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.DB, pkg.FormatSize(), dateStr}
 		addToTable := func(i int) {
 			if m.tables[i].loading {
 				m.tables[i].SetLoading(false)
