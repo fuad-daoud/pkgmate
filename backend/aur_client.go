@@ -7,6 +7,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
+)
+
+var (
+	aurRPCURL     = "https://aur.archlinux.org/rpc/v5/info"
+	aurHTTPClient = &http.Client{
+		Timeout: 10 * time.Second,
+	}
 )
 
 type aurResponse struct {
@@ -29,17 +37,20 @@ func CheckAURVersions(packageNames []string) (map[string]string, error) {
 		return make(map[string]string), nil
 	}
 
-	baseURL := "https://aur.archlinux.org/rpc/v5/info"
 	params := url.Values{}
 	for _, name := range packageNames {
 		params.Add("arg[]", name)
 	}
 
-	resp, err := http.Get(baseURL + "?" + params.Encode())
+	resp, err := aurHTTPClient.Get(aurRPCURL + "?" + params.Encode())
 	if err != nil {
 		return nil, fmt.Errorf("failed to query AUR: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("AUR query returned status %d: %s", resp.StatusCode, resp.Status)
+	}
 
 	var aurResp aurResponse
 	if err := json.NewDecoder(resp.Body).Decode(&aurResp); err != nil {
