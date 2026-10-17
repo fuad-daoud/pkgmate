@@ -1,0 +1,6 @@
+venvs are in /home/user/.local/share/pipx/venvs
+apps are exposed on your $PATH at /home/user/.local/bin
+   package black 24.2.0, installed using Python 3.12.2
+    - black
+   package httpie 3.2.2, installed using Python 3.12.2
+    - http

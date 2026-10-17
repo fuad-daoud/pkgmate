@@ -1,0 +1,29 @@
+{
+  "pipx_spec_version": "0.1",
+  "venvs": {
+    "black": {
+      "metadata": {
+        "injected_packages": {},
+        "main_package": {
+          "app_paths": [],
+          "package": "black",
+          "package_or_url": "black",
+          "package_version": "24.2.0",
+          "pip_args": [],
+          "suffix": ""
+        },
+        "pipx_metadata_version": "0.5",
+        "python_version": "Python 3.12.2"
+      }
+    },
+    "httpie": {
+      "metadata": {
+        "main_package": {
+          "package": "httpie",
+          "package_version": "3.2.2"
+        },
+        "python_version": "Python 3.12.2"
+      }
+    }
+  }
+}
