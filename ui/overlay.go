@@ -25,7 +25,7 @@ func PlaceOverlay(base string, content string) string {
 
 	contentRowStart := (baseHeight - contentHeight) / 2
 	contentRowEnd := contentRowStart + contentHeight
-	contentColStart := (baseWidth - contentWidth) / 2
+	contentColStart := max(0, (baseWidth-contentWidth)/2)
 
 	var builder strings.Builder
 	builder.Grow(len(base))
@@ -39,7 +39,10 @@ func PlaceOverlay(base string, content string) string {
 			contentLine := contentLines[row-contentRowStart]
 
 			builder.WriteString(dimStart)
-			builder.WriteString(string(baseRunes[:contentColStart]))
+			builder.WriteString(string(baseRunes[:min(contentColStart, len(baseRunes))]))
+			if len(baseRunes) < contentColStart {
+				builder.WriteString(strings.Repeat(" ", contentColStart-len(baseRunes)))
+			}
 			builder.WriteString(dimEnd)
 
 			builder.WriteString(contentLine)
