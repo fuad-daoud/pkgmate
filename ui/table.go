@@ -9,7 +9,6 @@ import (
 	"pkgmate/backend"
 
 	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -107,6 +106,11 @@ func (m tableModel) Init() tea.Cmd {
 	}
 }
 
+// RowIdentityKey builds a collision-free row identity key from package manager and name.
+func RowIdentityKey(manager, name string) string {
+	return manager + "\x00" + name
+}
+
 type PackageLoadedMsg struct {
 	pkgs backend.Package
 }
@@ -139,17 +143,18 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !pkg.Date.IsZero() {
 			dateStr = pkg.Date.Format("2006-01-02")
 		}
-		row := table.Row{pkg.Name, pkg.FormatVersion(), pkg.DB, pkg.FormatSize(), dateStr}
+		row := []string{pkg.Name, pkg.FormatVersion(), pkg.DB, pkg.FormatSize(), dateStr}
+		key := RowIdentityKey(pkg.DB, pkg.Name)
 		addToTable := func(i int) {
 			if m.tables[i].loading {
 				m.tables[i].SetLoading(false)
 			}
-			m.tables[i].addRow(row)
+			m.tables[i].addRow(key, row)
 			if pkg.NewVersion != "" {
-				m.tables[i].addStyleRow(pkg.Name, updateAvailableRow)
+				m.tables[i].addStyleRow(key, updateAvailableRow)
 			}
 			if pkg.IsFrozen {
-				m.tables[i].addStyleRow(pkg.Name, frozenRowStyle)
+				m.tables[i].addStyleRow(key, frozenRowStyle)
 			}
 		}
 		addToTable(2)

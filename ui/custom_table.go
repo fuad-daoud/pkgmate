@@ -13,6 +13,11 @@ type Column struct {
 	Title string
 }
 
+type Row struct {
+	Key   string
+	Cells []string
+}
+
 type customTableKeyMap struct {
 	up       key.Binding
 	down     key.Binding
@@ -35,10 +40,10 @@ type customTable struct {
 	keys         *customTableKeyMap
 	Columns      []string
 	mp           map[string]int
-	OriginalRows [][]string
+	OriginalRows []Row
 	StyledRows   map[string]lipgloss.Style
-	Rows         [][]string
-	NewRows      [][]string
+	Rows         []Row
+	NewRows      []Row
 	cursor       int
 	offset       int
 	Height       int
@@ -68,8 +73,9 @@ func newCustomTable(label string) *customTable {
 		keys:         &keys,
 		mp:           make(map[string]int),
 		Columns:      []string{},
-		Rows:         [][]string{},
-		NewRows:      [][]string{},
+		OriginalRows: []Row{},
+		Rows:         []Row{},
+		NewRows:      []Row{},
 		cursor:       0,
 		offset:       0,
 		focused:      true,
@@ -156,8 +162,8 @@ func (m customTable) Update(msg tea.Msg) (customTable, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m customTable) addStyleRow(row string, style lipgloss.Style) {
-	m.StyledRows[row] = style
+func (m *customTable) addStyleRow(key string, style lipgloss.Style) {
+	m.StyledRows[key] = style
 }
 
 func (m *customTable) updateCursor(n int) {
@@ -258,15 +264,15 @@ func (m *customTable) View() string {
 
 		for j := range m.Columns {
 			cellContent := ""
-			if j < len(row) {
-				cellContent = truncate(row[j], colWidth)
+			if j < len(row.Cells) {
+				cellContent = truncate(row.Cells[j], colWidth)
 			}
 
 			rowCells[j] = lipgloss.NewStyle().Width(colWidth).Render(cellContent)
 		}
 
 		currentRow := lipgloss.JoinHorizontal(lipgloss.Top, rowCells...)
-		rowStyle, ok := m.StyledRows[row[0]]
+		rowStyle, ok := m.StyledRows[row.Key]
 		if !ok {
 			rowStyle = lipgloss.NewStyle()
 		}
@@ -288,15 +294,21 @@ func (m *customTable) View() string {
 	return b.String()
 }
 
-func (m *customTable) addRow(row []string) {
-	if index, ok := m.mp[row[0]]; ok {
-		m.OriginalRows[index] = row
+func (m *customTable) addRow(key string, cells []string) {
+	if index, ok := m.mp[key]; ok {
+		m.OriginalRows[index] = Row{Key: key, Cells: cells}
+		for i := range m.Rows {
+			if m.Rows[i].Key == key {
+				m.Rows[i] = Row{Key: key, Cells: cells}
+				break
+			}
+		}
 		return
 	}
-	m.OriginalRows = append(m.OriginalRows, row)
-	m.mp[row[0]] = len(m.OriginalRows) - 1
+	m.OriginalRows = append(m.OriginalRows, Row{Key: key, Cells: cells})
+	m.mp[key] = len(m.OriginalRows) - 1
 	m.Rows = m.OriginalRows
-	m.NewRows = make([][]string, len(m.OriginalRows))
+	m.NewRows = make([]Row, len(m.OriginalRows))
 	m.adjustOffset()
 }
 
@@ -317,10 +329,10 @@ func (m *customTable) filterColumn(column, term string) {
 
 	index := 0
 	for _, row := range m.OriginalRows {
-		if columnIndex >= len(row) {
+		if columnIndex >= len(row.Cells) {
 			continue
 		}
-		if !strings.Contains(strings.ToLower(row[columnIndex]), term) {
+		if !strings.Contains(strings.ToLower(row.Cells[columnIndex]), term) {
 			continue
 		}
 		m.NewRows[index] = row
