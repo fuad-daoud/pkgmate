@@ -3,6 +3,8 @@
 package backend
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -15,6 +17,15 @@ import (
 )
 
 type PacmanBackend struct{}
+
+// Seams for the fresh update check; tests replace them.
+var (
+	checkupdatesLookPath  = exec.LookPath
+	checkupdatesRun       = runCheckupdates
+	checkupdatesTimeout   = 30 * time.Second
+	checkupdatesWaitDelay = 3 * time.Second
+	checkupdatesAbsent    sync.Once
+)
 
 func init() {
 	RegisterBackend(&PacmanBackend{})
@@ -50,7 +61,12 @@ func (p *PacmanBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 		explicitPkgs := getExplicitPackages()
 		upgradable := getUpgradablePackages()
 
+		// Fresh check runs concurrently; the first emission below does not wait for it.
+		freshCh := make(chan map[string]string, 1)
+		go func() { freshCh <- fetchFreshUpdates() }()
+
 		aurPkgs := make([]Package, 0)
+		repoPkgs := make([]Package, 0)
 		for _, pkg := range parsePacmanQi(string(packagesParagraphOutput)) {
 			pkg.IsDirect = explicitPkgs[pkg.Name]
 			pkg.IsFrozen = pinnedPkgs[pkg.Name]
@@ -74,10 +90,17 @@ func (p *PacmanBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 				}
 			}
 
+			if pkg.DB == "pacman" {
+				repoPkgs = append(repoPkgs, pkg)
+			}
 			load(pkg)
 		}
 
 		loadAURNewVersions(aurPkgs, load)
+
+		for _, pkg := range reemitFreshUpdates(repoPkgs, <-freshCh) {
+			load(pkg)
+		}
 	})
 
 	cmd = exec.Command("pacman", "-Qtdq")
@@ -260,6 +283,74 @@ func getUpgradablePackages() map[string]string {
 	}
 
 	return parsePacmanQu(string(output))
+}
+
+// runCheckupdates runs checkupdates as the user. The exit code is returned
+// separately; err is non-nil only when the process could not run to completion
+// (failed to start, or the context ended).
+func runCheckupdates(ctx context.Context) (out []byte, code int, err error) {
+	cmd := exec.CommandContext(ctx, "checkupdates", "--nocolor")
+	// A killed script's fakeroot/pacman children can keep stdout open.
+	cmd.WaitDelay = checkupdatesWaitDelay
+	out, err = cmd.Output()
+	if err == nil {
+		return out, 0, nil
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, -1, ctxErr
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return out, exitErr.ExitCode(), nil
+	}
+	return nil, -1, err
+}
+
+// fetchFreshUpdates returns the fresh update versions from checkupdates, or
+// nil when it is absent, reports no updates, or fails (keeping the -Qu data).
+func fetchFreshUpdates() map[string]string {
+	if _, err := checkupdatesLookPath("checkupdates"); err != nil {
+		checkupdatesAbsent.Do(func() {
+			slog.Info("checkupdates not found, update markers use the local sync database; install pacman-contrib for fresh ones")
+		})
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), checkupdatesTimeout)
+	defer cancel()
+
+	out, code, err := checkupdatesRun(ctx)
+	if err != nil {
+		slog.Warn("checkupdates did not complete, keeping local update data", "err", err)
+		return nil
+	}
+	switch code {
+	case 0:
+		return parsePacmanQu(string(out))
+	case 2: // no updates available
+		return nil
+	default:
+		slog.Warn("checkupdates failed, keeping local update data", "exitCode", code)
+		return nil
+	}
+}
+
+// reemitFreshUpdates returns the repo packages whose fresh new version is
+// non-empty and differs from the one already emitted. Markers are never removed.
+func reemitFreshUpdates(emitted []Package, fresh map[string]string) []Package {
+	var out []Package
+	for _, pkg := range emitted {
+		if pkg.DB != "pacman" {
+			continue
+		}
+		newVer := fresh[pkg.Name]
+		if newVer == "" || newVer == pkg.NewVersion {
+			continue
+		}
+		pkg.NewVersion = newVer
+		out = append(out, pkg)
+	}
+	return out
 }
 
 func parsePacmanQu(out string) map[string]string {
