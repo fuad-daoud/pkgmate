@@ -17,9 +17,8 @@ pkgmate is a viewer today. It does:
 - List installed packages from every supported source that is present on the machine, in four tabs: direct, dependency, all and orphan packages.
 - Mark packages that are frozen (held or pinned) and packages with a newer version available. For pacman, the newer version of AUR packages is looked up from the AUR.
 - Search the list with live fuzzy matching.
-- Refresh package databases ("update") for pacman, apt and Homebrew, running the privileged commands as described in [Privileged commands](#privileged-commands). The update flow is implemented in the backends but is not yet listed in the command palette.
 
-pkgmate does not yet install, remove or upgrade packages. Flatpak, Snap, npm, pip and Go have no update support either: they are skipped when an update runs.
+pkgmate does not yet install, remove or upgrade packages.
 
 ## Features
 
@@ -28,7 +27,6 @@ pkgmate does not yet install, remove or upgrade packages. Flatpak, Snap, npm, pi
 - 📦 **Multi-backend support** - pacman/AUR, dpkg/apt, Homebrew, Flatpak, Snap, npm, pip/pipx, Go
 - 🔒 **Security-first** - GPG signing, automated vulnerability scanning
 - 📊 **Clean interface** - Table view with virtual scrolling, visual indicators for available updates and frozen packages, plus an orphan tab
-- ⚡ **Privilege escalation** - pkexec (PolicyKit) with sudo fallback
 - 🎨 **Command palette** - Quick access to all features (Ctrl+k or Ctrl+p)
 
 ## Supported Sources
@@ -143,23 +141,24 @@ pkgmate --version
 - `Ctrl+P` or `Ctrl+k` - Command palette
 - `Ctrl+C` - Quit
 
-## Privileged commands
+## Security model
 
-Refreshing a package database needs root, so pkgmate itself refuses to start as root and escalates only for the command that needs it. For each privileged command it:
+pkgmate only reads. It refuses to start as root, it never calls `sudo` or `pkexec`, and every external command is run as argv with no shell.
 
-1. Resolves the command to an absolute path.
-2. Runs it through `pkexec <path> <args>`. If `pkexec` is not installed, cannot be started, or exits with 126 or 127 (authentication dismissed or not authorized), it retries with `sudo -- <path> <args>`.
-3. Runs the argv directly, without a shell, so no argument is ever interpreted by one.
+These are the queries it runs, all as your user. The Network column says whether the query uses the network.
 
-The exact argv is written to the application log (Debug Console). The command's output is shown live in the terminal while it runs, and kept so pkgmate can show it again afterwards.
+| Source | Queries | Network |
+|--------|---------|---------|
+| pacman | `pacman -Qi`, `-Qeq`, `-Qmq`, `-Qu`, `-Qtdq`; reads `/etc/pacman.conf`; `checkupdates --nocolor` when installed (pacman-contrib) | `checkupdates` syncs a private copy of the sync databases under `$TMPDIR/checkup-db-$UID` with `fakeroot`; the system databases are not touched. The AUR RPC (`https://aur.archlinux.org/rpc/v5/info`) is an HTTPS lookup for AUR versions. |
+| dpkg/apt | `dpkg --get-selections`, `apt list --upgradable`, `apt-get --simulate autoremove`; reads `/var/lib/dpkg/status` | none |
+| Homebrew | `brew --cellar`, `brew --prefix`, `brew outdated --json=v2`, `brew autoremove --dry-run` | |
+| Flatpak | `flatpak list --app [--columns=…]` | |
+| Snap | `snap list`, `snap refresh --list` | `snap refresh --list` asks snapd and the store; it does not refresh |
+| npm | `npm root -g`, `npm list -g --json --depth=0` | |
+| pip | `pip`/`pip3 list --format=json`, `pip show pip`, `pip list --outdated --format=json`, `pipx list [--json]` | `pip list --outdated` queries the package index |
+| Go | reads build info of binaries in `$GOBIN`, `$GOPATH/bin` or `~/go/bin`; no command | |
 
-The commands pkgmate runs today:
-
-| Source | Command | Escalation |
-|--------|---------|------------|
-| pacman | `pacman -Syy --noconfirm` | pkexec, then sudo |
-| dpkg/apt | `apt-get update`, or `apt update` when `apt-get` is missing | pkexec, then sudo |
-| Homebrew | `brew update` | none, runs as your user |
+The crash screen can also pipe the report to `pbcopy`, `wl-copy`, `xclip` or `xsel` when you ask it to.
 
 ## Verifying Downloads
 

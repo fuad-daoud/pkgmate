@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -60,16 +59,6 @@ func (s *SnapBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 
 		slog.Info("loaded packages from snap", "time", time.Since(start))
 	})
-}
-
-func (s *SnapBackend) Update() (func() error, chan OperationResult) {
-	resultChan := make(chan OperationResult, 1)
-	err := fmt.Errorf("snap %w", ErrUpdateNotImplemented)
-
-	return func() error {
-		resultChan <- OperationResult{Error: err}
-		return err
-	}, resultChan
 }
 
 func parseSnapList(out string) []Package {

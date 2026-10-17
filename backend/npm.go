@@ -4,7 +4,6 @@ package backend
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -110,15 +109,6 @@ func parseNpmList(out []byte) (map[string]npmPackage, error) {
 	return npmList.Dependencies, nil
 }
 
-func (n *NpmBackend) Update() (func() error, chan OperationResult) {
-	resultChan := make(chan OperationResult, 1)
-	err := fmt.Errorf("npm %w", ErrUpdateNotImplemented)
-
-	return func() error {
-		resultChan <- OperationResult{Error: err}
-		return err
-	}, resultChan
-}
 func (n NpmBackend) String() string {
 	return n.Name()
 }

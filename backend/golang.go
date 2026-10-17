@@ -4,7 +4,6 @@ package backend
 
 import (
 	"debug/buildinfo"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -92,16 +91,6 @@ func (g *GoBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 
 		slog.Info("loaded packages from go", "time", time.Since(start))
 	})
-}
-
-func (g *GoBackend) Update() (func() error, chan OperationResult) {
-	resultChan := make(chan OperationResult, 1)
-	err := fmt.Errorf("go %w", ErrUpdateNotImplemented)
-
-	return func() error {
-		resultChan <- OperationResult{Error: err}
-		return err
-	}, resultChan
 }
 
 func goNameVersion(bi *buildinfo.BuildInfo, fileName string) (name, version string) {

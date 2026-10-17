@@ -25,24 +25,20 @@ type TableInitEvent struct{}
 type tableKeys struct {
 	customTableKey *customTableKeyMap
 
-	tab            key.Binding
-	prevTab        key.Binding
-	remove         key.Binding
-	exitSelectMode key.Binding
-	search         key.Binding
-	reset          key.Binding
-	submit         key.Binding
+	tab     key.Binding
+	prevTab key.Binding
+	search  key.Binding
+	reset   key.Binding
+	submit  key.Binding
 }
 
 func (k tableKeys) ShortHelp() []key.Binding {
 	help := k.customTableKey.ShortHelp()
-	help = append(help, k.remove)
 	return help
 }
 
 func (k tableKeys) FullHelp() [][]key.Binding {
 	help := k.customTableKey.FullHelp()
-	help = append(help, []key.Binding{k.remove})
 	return help
 }
 
@@ -68,8 +64,6 @@ type CursorChangedEvent struct {
 
 func newTable() tableModel {
 	keys := tableKeys{
-		remove:         key.NewBinding(key.WithKeys("D"), key.WithHelp("D", "select packages to delete (root)"), key.WithDisabled()),
-		exitSelectMode: key.NewBinding(key.WithKeys("esc"), key.WithHelp("Esc", "clear selected packages"), key.WithDisabled()),
 		customTableKey: newCustomTable("Direct Packages").keys,
 		search:         key.NewBinding(key.WithKeys("/", "ctrl+f"), key.WithHelp("//ctrl+f", "focus search box")),
 		reset:          key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "reset search"), key.WithDisabled()),
@@ -170,21 +164,10 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, m.keys.remove):
-			m.keys.remove.SetEnabled(false)
-			m.keys.exitSelectMode.SetEnabled(true)
-			m.table().EnterSelectMode(dangerRow, cursorAndDangerRow)
-		case key.Matches(msg, m.keys.exitSelectMode):
-			m.keys.exitSelectMode.SetEnabled(false)
-			m.keys.remove.SetEnabled(true)
-			m.table().ExitSelectMode()
-
 		case key.Matches(msg, m.keys.prevTab):
 			if m.search.Focused() {
 				break
 			}
-			m.keys.exitSelectMode.SetEnabled(false)
-			m.table().ExitSelectMode()
 			m.activeTable -= 1
 			m.activeTable += len(m.tables)
 			m.activeTable %= len(m.tables)
@@ -192,8 +175,6 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.search.Focused() {
 				break
 			}
-			m.keys.exitSelectMode.SetEnabled(false)
-			m.table().ExitSelectMode()
 			m.activeTable += 1
 			m.activeTable %= len(m.tables)
 		}

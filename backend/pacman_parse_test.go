@@ -92,6 +92,20 @@ func TestParsePacmanQu(t *testing.T) {
 	}
 }
 
+func TestParseCheckupdatesFixture(t *testing.T) {
+	want := map[string]string{
+		"linux":          "6.12.2.arch1-1",
+		"firefox":        "132.0.1-1",
+		"bash":           "5.2.037-2",
+		"linux-firmware": "20241120-1",
+	}
+
+	got := parsePacmanQu(readPacmanFixture(t, "checkupdates.txt"))
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
 func TestParsePacmanIgnorePkg(t *testing.T) {
 	t.Run("ignore lines", func(t *testing.T) {
 		want := map[string]bool{"linux": true, "linux-headers": true, "nvidia-utils": true}
