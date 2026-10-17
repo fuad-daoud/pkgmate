@@ -25,7 +25,7 @@ Out of scope: "which copy runs first on `PATH`" (binary shadowing), user-editabl
 `Package` gains one field:
 
 ```go
-ID string // native identifier when it differs from Name (Flatpak application ID); empty otherwise
+ID string // native identifier when it differs from Name (Flatpak application ID, Go binary file name); empty otherwise
 ```
 
 `parseFlatpakList` keeps the application column (`fields[0]`, today discarded) as `ID`. `getFlatpakInstallDate` is called with the ID instead of the display name (fixes the item in #116).
@@ -42,7 +42,7 @@ ID string // native identifier when it differs from Name (Flatpak application ID
 | `pip` | `py:<name>` |
 | `pipx` | `py:<name>` and `app:<name>` |
 | `npm` | `app:<name>` (global packages are matched by name; the owner accepted the occasional false positive) |
-| `golang` | `app:<last path element of the module path>` (`golang.org/x/tools/gopls` → `gopls`) |
+| `golang` | `app:<binary file name>`, carried in `ID` (`gopls`). Falls back to the last module path element, skipping a trailing `vN`, when `ID` is empty. Amended after a real-machine check: the module path `google.golang.org/protobuf` (binary `protoc-gen-go`) falsely matched pacman `protobuf`. |
 | `flatpak` | alias table on `ID` first; otherwise `app:<last dot-separated segment of ID>`; the generic segments `client`, `desktop`, `app`, `application` produce no key unless aliased |
 
 ### Alias table

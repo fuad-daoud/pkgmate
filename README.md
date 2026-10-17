@@ -28,7 +28,7 @@ pkgmate does not yet install, remove or upgrade packages.
   - names are compared lowercase, with `_` treated as `-`;
   - Python packages match across pip, pipx, pacman `python-*` and apt `python3-*`;
   - a trailing `-bin`, `-git` or `-appimage` is ignored on pacman names;
-  - Go binaries match by the last element of the module path, and a trailing major-version element such as `v2` is skipped in favour of the one before it;
+  - Go binaries match by their file name (the command you run, e.g. `gopls`), not by the module they were built from;
   - Flatpak apps match by the last part of their application ID, with a small built-in alias list for well-known apps whose ID does not normalise to their common name;
   - **npm global packages are matched by name alone, so an unrelated package that happens to share a name can be reported.**
 - pkgmate only reports duplicates. It never removes anything.

@@ -121,6 +121,16 @@ func TestIdentityKeysRules(t *testing.T) {
 			pkg:  Package{DB: "golang", Name: "mytool"},
 			want: []string{"app:mytool"},
 		},
+		{
+			name: "golang binary name wins over module path",
+			pkg:  Package{DB: "golang", Name: "google.golang.org/protobuf", ID: "protoc-gen-go"},
+			want: []string{"app:protoc-gen-go"},
+		},
+		{
+			name: "golang binary name matches its module's last element",
+			pkg:  Package{DB: "golang", Name: "golang.org/x/tools/gopls", ID: "gopls"},
+			want: []string{"app:gopls"},
+		},
 		// flatpak last segment non-aliased
 		{
 			name: "flatpak dot segment",

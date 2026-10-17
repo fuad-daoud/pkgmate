@@ -77,6 +77,7 @@ func (g *GoBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 				packageName, version := goNameVersion(bi, entry.Name())
 
 				load(Package{
+					ID:       entry.Name(),
 					Name:     packageName,
 					Version:  version,
 					Size:     info.Size(),

@@ -120,6 +120,16 @@ func IdentityKeys(p Package) []string {
 		return []string{"app:" + norm}
 
 	case "golang":
+		// The installed binary's file name is the command the user has; the
+		// module path can name a different tool (protoc-gen-go comes from
+		// google.golang.org/protobuf, which is not pacman's protobuf).
+		if p.ID != "" {
+			norm := normalizeKeyName(p.ID)
+			if norm == "" {
+				return nil
+			}
+			return []string{"app:" + norm}
+		}
 		cleanPath := strings.Trim(p.Name, "/")
 		if cleanPath == "" {
 			return nil

@@ -98,6 +98,7 @@ func TestDuplicateDetectionE2E(t *testing.T) {
 		base := strings.TrimSuffix(filepath.Base(path), ".buildinfo")
 		name, ver := goNameVersion(bi, base)
 		pkgs = append(pkgs, Package{
+			ID:       base,
 			Name:     name,
 			Version:  ver,
 			DB:       "golang",
