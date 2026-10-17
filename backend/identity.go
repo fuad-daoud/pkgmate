@@ -7,13 +7,13 @@ import (
 
 var flatpakAliases = map[string]string{
 	// Spec required
-	"com.spotify.Client":        "app:spotify",
-	"org.telegram.desktop":      "app:telegram-desktop",
-	"com.google.Chrome":         "app:google-chrome",
-	"com.visualstudio.code":     "app:code",
+	"com.spotify.Client":    "app:spotify",
+	"org.telegram.desktop":  "app:telegram-desktop",
+	"com.google.Chrome":     "app:google-chrome",
+	"com.visualstudio.code": "app:code",
 	// Fixture required
-	"com.obsproject.Studio":     "app:obs-studio",
-	"org.gnome.Calculator":      "app:gnome-calculator",
+	"com.obsproject.Studio": "app:obs-studio",
+	"org.gnome.Calculator":  "app:gnome-calculator",
 	// Well-known apps whose last segment does not normalise to the common name
 	"com.bitwarden.desktop":     "app:bitwarden",
 	"com.mattermost.Desktop":    "app:mattermost-desktop",
