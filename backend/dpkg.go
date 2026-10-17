@@ -113,7 +113,7 @@ func (d *DpkgBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 }
 
 func (d *DpkgBackend) Update() (func() error, chan OperationResult) {
-	if _, err := exec.LookPath(d.Name() + "apt-get"); err == nil {
+	if _, err := exec.LookPath("apt-get"); err == nil {
 		return CreatePrivilegedCmd(d.Name()+"-update", "apt-get", "update")
 	}
 

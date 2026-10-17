@@ -101,7 +101,7 @@ func (s *SnapBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 
 func (s *SnapBackend) Update() (func() error, chan OperationResult) {
 	resultChan := make(chan OperationResult, 1)
-	err := fmt.Errorf("snap update not implemented")
+	err := fmt.Errorf("snap %w", ErrUpdateNotImplemented)
 
 	return func() error {
 		resultChan <- OperationResult{Error: err}

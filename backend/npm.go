@@ -103,7 +103,7 @@ func (n *NpmBackend) LoadPackages(wg *sync.WaitGroup, load func(Package)) {
 
 func (n *NpmBackend) Update() (func() error, chan OperationResult) {
 	resultChan := make(chan OperationResult, 1)
-	err := fmt.Errorf("npm update not implemented")
+	err := fmt.Errorf("npm %w", ErrUpdateNotImplemented)
 
 	return func() error {
 		resultChan <- OperationResult{Error: err}
