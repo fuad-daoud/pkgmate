@@ -39,9 +39,16 @@ jobs:
           AUR_EMAIL: ${{ secrets.AUR_EMAIL }}
           APPLE_DEVELOPER_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
           APPLE_DEVELOPER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
-          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
-          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
-          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+          # Notarization is off: Apple's notary API answers 403 until the
+          # Developer Program agreement is accepted again. With these empty,
+          # GoReleaser still signs the macOS binary but skips notarization.
+          # To turn it back on, restore the secrets:
+          #   MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          #   MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          #   MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+          MACOS_NOTARY_KEY: ""
+          MACOS_NOTARY_KEY_ID: ""
+          MACOS_NOTARY_ISSUER_ID: ""
 
       - name: Submit to VirusTotal
         run: |
